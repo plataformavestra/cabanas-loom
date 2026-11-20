@@ -89,6 +89,7 @@ th{font-weight:500;color:var(--mut);font-size:12px}
     <button data-tab="cal" class="on">Calendário</button>
     <button data-tab="preco">Preços e regras</button>
     <button data-tab="sync">Sincronização</button>
+    <button data-tab="res" id="navRes">Reservas</button>
   </nav>
   <main>
     <div id="tab-cal">
@@ -166,6 +167,18 @@ th{font-weight:500;color:var(--mut);font-size:12px}
       </div>
     </div>
 
+    <div id="tab-res" class="hide">
+      <div class="card">
+        <h2>Pedidos de reserva do site</h2>
+        <div class="hint" style="margin:0 0 12px">Ao aprovar, as datas fecham no painel e seguem para o Airbnb e o Booking pelos links de sincronização. Responda o hóspede pelo contato informado.</div>
+        <div id="resPend"></div>
+      </div>
+      <div class="card">
+        <h2>Respondidos</h2>
+        <div id="resDone"></div>
+      </div>
+    </div>
+
     <div id="tab-sync" class="hide">
       <div class="card">
         <h2>Calendários do Airbnb e do Booking</h2>
@@ -191,7 +204,7 @@ const sb=window.__mockSb||supabase.createClient(SB_URL,SB_KEY);
 const $=id=>document.getElementById(id);
 const MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 const ORIGEM={manual:'Bloqueio seu',airbnb:'Airbnb',booking:'Booking',site:'Site'};
-let cabins=[],blocks=[],rules=[],sources=[],feeds=[],view=new Date(),selA=null,selB=null;
+let cabins=[],blocks=[],rules=[],sources=[],feeds=[],requests=null,view=new Date(),selA=null,selB=null;
 view=new Date(view.getFullYear(),view.getMonth(),1);
 
 /* ---------- datas (sempre DD/MM/AAAA na tela, AAAA-MM-DD no banco) ---------- */
@@ -231,7 +244,9 @@ async function loadAll(){
     sb.from('ical_feeds').select('*').order('cabin_id')]);
   if(c.error||b.error||r.error){toast('Erro ao carregar dados.');return}
   cabins=c.data;blocks=b.data;rules=r.data;sources=so.data||[];feeds=fe.data||[];
-  fillCabinSelects();renderCal();renderBlocks();loadCabinForm();renderRules();renderSync();
+  const rq=await sb.from('booking_requests').select('*').order('created_at',{ascending:false}).limit(200);
+  requests=rq.error?null:(rq.data||[]);
+  fillCabinSelects();renderCal();renderBlocks();loadCabinForm();renderRules();renderSync();renderRes();
 }
 function fillCabinSelects(){
   const keep1=$('calCabin').value,keep2=$('prCabin').value;
@@ -240,12 +255,61 @@ function fillCabinSelects(){
   if(keep1)$('calCabin').value=keep1;if(keep2)$('prCabin').value=keep2;
 }
 
+/* ---------- reservas (pedidos vindos do site) ---------- */
+function cabName(id){const c=cabins.find(x=>x.id===id);return c?c.name:id}
+function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
+function conflictOf(r){return blocks.filter(b=>b.cabin_id===r.cabin_id&&b.start_date<r.end_date&&b.end_date>r.start_date)}
+const SRC_NOME={manual:'bloqueio seu',airbnb:'Airbnb',booking:'Booking',site:'site'};
+function renderRes(){
+  const pend=$('resPend'),done=$('resDone');pend.textContent='';done.textContent='';
+  if(requests===null){pend.appendChild(el('p','hint','A seção de reservas ainda não foi ativada no banco de dados.'));$('navRes').textContent='Reservas';return}
+  const abertos=requests.filter(r=>r.status==='pendente');
+  $('navRes').textContent=abertos.length?'Reservas ('+abertos.length+')':'Reservas';
+  if(!abertos.length)pend.appendChild(el('p','hint','Nenhum pedido aguardando resposta.'));
+  abertos.slice().reverse().forEach(r=>{
+    const box=el('div','card');box.style.background='#fff';
+    const n=Math.round((fromIso(r.end_date)-fromIso(r.start_date))/86400000);
+    box.appendChild(el('h3',null,cabName(r.cabin_id)+' · '+br(r.start_date)+' → '+br(r.end_date)+' ('+n+(n>1?' noites':' noite')+')'));
+    box.appendChild(el('p',null,r.guest_name+' · '+r.guests+(r.guests>1?' hóspedes':' hóspede')));
+    box.appendChild(el('p',null,'Contato: '+r.guest_contact));
+    if(r.message)box.appendChild(el('p','hint','“'+r.message+'”'));
+    box.appendChild(el('p','hint','Pedido em '+new Date(r.created_at).toLocaleString('pt-BR')));
+    const cf=conflictOf(r);
+    if(cf.length){
+      const w=el('p','hint','Atenção: conflito. Essas datas já estão ocupadas ('+cf.map(b=>SRC_NOME[b.source]||b.source).join(', ')+'). Não aprove; recuse e avise o hóspede.');
+      w.style.color='var(--bad)';w.style.fontWeight='600';box.appendChild(w);
+    }
+    const bar=el('div','bar');
+    const ok=el('button','btn','Aprovar');ok.disabled=cf.length>0;
+    ok.onclick=async()=>{
+      if(!confirm('Aprovar o pedido de '+r.guest_name+' ('+br(r.start_date)+' → '+br(r.end_date)+')? As datas serão fechadas.'))return;
+      ok.disabled=true;const {error}=await sb.rpc('approve_booking',{p_id:r.id});
+      if(error){toast(error.message||'Não foi possível aprovar.');ok.disabled=false;return}
+      toast('Reserva aprovada. Datas fechadas.');loadAll();
+    };
+    const no=el('button','btn danger','Recusar');
+    no.onclick=async()=>{
+      if(!confirm('Recusar o pedido de '+r.guest_name+'?'))return;
+      no.disabled=true;const {error}=await sb.rpc('decline_booking',{p_id:r.id});
+      if(error){toast(error.message||'Não foi possível recusar.');no.disabled=false;return}
+      toast('Pedido recusado.');loadAll();
+    };
+    bar.append(ok,no);box.appendChild(bar);pend.appendChild(box);
+  });
+  const resp=requests.filter(r=>r.status!=='pendente').slice(0,30);
+  if(!resp.length){done.appendChild(el('p','hint','Nada por aqui ainda.'));return}
+  const tb=el('table');const hd=el('tr');['Cabana','Entrada','Saída','Hóspede','Situação'].forEach(t=>hd.appendChild(el('th',null,t)));tb.appendChild(hd);
+  resp.forEach(r=>{const tr=el('tr');[cabName(r.cabin_id),br(r.start_date),br(r.end_date),r.guest_name,r.status==='aprovada'?'Aprovada':'Recusada'].forEach(t=>tr.appendChild(el('td',null,t)));tb.appendChild(tr)});
+  done.appendChild(tb);
+}
+
 /* ---------- abas ---------- */
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
   $('tab-cal').classList.toggle('hide',b.dataset.tab!=='cal');
   $('tab-preco').classList.toggle('hide',b.dataset.tab!=='preco');
   $('tab-sync').classList.toggle('hide',b.dataset.tab!=='sync');
+  $('tab-res').classList.toggle('hide',b.dataset.tab!=='res');
 });
 
 /* ---------- calendário ---------- */

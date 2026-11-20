@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cabanas Loom — Urubici · Prévia</title>
+<title>Cabanas Loom — Urubici</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -83,27 +83,17 @@ h3{font-family:Fraunces,serif;font-weight:600;font-size:17px;margin:4px 0 6px}
 .sum{margin:10px 0 10px;padding:9px 12px;background:rgba(255,255,255,.7);font-size:13px;border:1px solid var(--line);border-radius:10px;font-size:14px;min-height:46px}
 .cta{width:100%;border:0;background:var(--wood-d);color:#fff;font:600 14px Inter,sans-serif;padding:12px;border-radius:10px;cursor:pointer;min-height:48px}
 .cta:hover{background:var(--wood)}
+.day.blk.outok{cursor:pointer;border-color:var(--wood)}
+.bf label{display:block;font-size:12px;color:var(--ink2);margin-bottom:8px}
+.bf input,.bf select,.bf textarea{display:block;width:100%;margin-top:3px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:14px Inter,sans-serif;background:#fff;color:var(--ink);resize:none;box-sizing:border-box}
+.bf .err{color:#a33;font-size:13px;margin:6px 0}
+.cta:disabled{opacity:.6;cursor:default}
+.ok{font-size:14px;line-height:1.5;padding:12px;background:#e7efe6;border:1px solid #c9d9c8;border-radius:10px}
+.warn{color:#a33}
 .note{font-size:11px;color:var(--ink2);margin-top:10px;line-height:1.45}
 #grab{display:none}
 .ask{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:1px solid var(--line);background:rgba(255,255,255,.75);color:var(--ink);font:600 13px Inter,sans-serif;padding:10px;border-radius:999px;cursor:pointer;min-height:42px;margin:0 0 12px}
 .ask:hover{background:#fff}
-#chat{position:fixed;right:16px;bottom:16px;width:340px;height:min(520px,calc(100vh - 32px));z-index:9;display:none;flex-direction:column;background:rgba(251,249,244,.94);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.6);border-radius:16px;box-shadow:0 14px 40px rgba(0,0,0,.22);overflow:hidden}
-#chat.on{display:flex}
-.ch-h{display:flex;align-items:center;gap:10px;padding:14px 14px 12px;border-bottom:1px solid var(--line)}
-.ch-av{width:36px;height:36px;border-radius:50%;background:var(--moss);color:#fff;display:flex;align-items:center;justify-content:center;font:600 14px Fraunces,serif;flex:none}
-.ch-h b{display:block;font-size:14px}.ch-h small{font-size:12px;color:var(--ink2)}
-.ch-h button{margin-left:auto;width:36px;height:36px;border-radius:50%;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:18px;color:var(--ink)}
-.ch-b{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px}
-.msg{max-width:82%;padding:9px 12px;border-radius:14px;font-size:13.5px;line-height:1.4}
-.msg.h{background:#fff;border:1px solid var(--line);align-self:flex-start;border-bottom-left-radius:4px}
-.msg.u{background:var(--moss);color:#fff;align-self:flex-end;border-bottom-right-radius:4px}
-.msg.s{align-self:center;background:transparent;color:var(--ink2);font-size:12px;text-align:center;max-width:95%}
-.ch-f{display:flex;flex-direction:column;gap:8px;padding:12px;border-top:1px solid var(--line)}
-.ch-f .row{display:flex;gap:8px}
-.ch-f input,.ch-f textarea{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:14px Inter,sans-serif;background:#fff;color:var(--ink);resize:none}
-.ch-f label{position:absolute;left:-9999px}
-.ch-f button{border:0;background:var(--wood-d);color:#fff;font:600 14px Inter,sans-serif;border-radius:10px;padding:0 16px;min-height:44px;cursor:pointer}
-@media (max-width:760px){#chat{left:0;right:0;bottom:0;top:0;width:auto;height:auto;border-radius:0}}
 #rooms{transition:opacity .3s}
 #pins,#rooms{position:fixed;inset:0;overflow:hidden;pointer-events:none;z-index:4;transform:translateZ(0)}
 html,body{width:100%;max-width:100vw;overscroll-behavior:none}
@@ -148,7 +138,6 @@ html,body{width:100%;max-width:100vw;overscroll-behavior:none}
 <div id="stage"></div>
 <header>
   <div class="brand">LOOM<small>CABANAS · URUBICI</small></div>
-  <div class="tag">Prévia do layout · dados provisórios</div>
 </header>
 <button id="back">← Ver o terreno todo</button>
 <button id="inside" type="button">Ver por dentro</button>
@@ -157,14 +146,6 @@ html,body{width:100%;max-width:100vw;overscroll-behavior:none}
 <div id="pins"></div>
 <aside id="panel" aria-live="polite"></aside>
 <div id="toast"></div>
-<section id="chat" aria-label="Conversa com o anfitrião">
-  <div class="ch-h"><div class="ch-av">L</div><div><b>Felipe · Cabanas Loom</b><small id="chsub">Anfitrião</small></div><button type="button" id="chx" aria-label="Fechar conversa">×</button></div>
-  <div class="ch-b" id="chb"></div>
-  <form class="ch-f" id="chf">
-    <div class="row" id="chid"><label for="chn">Seu nome</label><input id="chn" placeholder="Seu nome" autocomplete="name"><label for="chc">WhatsApp ou e-mail</label><input id="chc" placeholder="WhatsApp ou e-mail" autocomplete="email"></div>
-    <div class="row"><label for="cht">Mensagem</label><textarea id="cht" rows="2" placeholder="Escreva sua dúvida…"></textarea><button type="submit">Enviar</button></div>
-  </form>
-</section>
 <div id="lb" role="dialog" aria-label="Fotos"><div id="lbt"></div><button id="lbp" type="button" aria-label="Foto anterior">‹</button><button id="lbn" type="button" aria-label="Próxima foto">›</button><button id="lbx" type="button" aria-label="Fechar fotos">×</button><div id="lbc"></div></div>
 <button id="dn" type="button" aria-label="Alternar dia e noite"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg><span>Noite</span></button>
 
@@ -1049,74 +1030,135 @@ function updatePins(){
 
 /* ---------- painel + calendário ---------- */
 const panel=document.getElementById('panel'),backBtn=document.getElementById('back'),hint=document.getElementById('hint'),toast=document.getElementById('toast');
-const HOJE=new Date(2026,10,19);
+const _n=new Date(),HOJE=new Date(_n.getFullYear(),_n.getMonth(),_n.getDate());
 const MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 const fmt=d=>String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear();
-const mk=(y,m,d)=>new Date(y,m,d);
-const BLOQ={ // exemplo, só para a prévia
-  loom1:[[mk(2026,10,23),mk(2026,10,26)],[mk(2026,11,5),mk(2026,11,8)],[mk(2026,11,26),mk(2026,11,31)]],
-  loom2:[[mk(2026,10,27),mk(2026,10,29)],[mk(2026,11,12),mk(2026,11,15)],[mk(2026,11,24),mk(2026,11,28)]]
-};
-let calMonth=new Date(2026,10,1),selA=null,selB=null;
-function blocked(id,d){return BLOQ[id].some(r=>d>=r[0]&&d<=r[1])}
+const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const fromIso=t=>{const p=t.split('-');return new Date(+p[0],+p[1]-1,+p[2])};
+const brl=v=>'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const SB_URL='https://voveeogibxytqladwiqr.supabase.co',SB_KEY='sb_publishable_NmufNWN4WlGBLfXi9eJ0UA_7IKtpy5X';
+let LIVE=null; // null = carregando · false = falhou · objeto = dados reais do painel
+async function sbGet(path){const r=await fetch(SB_URL+'/rest/v1/'+path,{headers:{apikey:SB_KEY}});if(!r.ok)throw new Error('http '+r.status);return r.json()}
+async function loadLive(){
+  try{
+    const hj=iso(HOJE);
+    const [b,c,r]=await Promise.all([
+      sbGet('public_blocks?select=cabin_id,start_date,end_date&end_date=gte.'+hj+'&limit=2000'),
+      sbGet('public_cabins?select=*'),
+      sbGet('public_price_rules?select=*&end_date=gte.'+hj)]);
+    const L={blocks:{},cabins:{},rules:{}};
+    b.forEach(x=>(L.blocks[x.cabin_id]=L.blocks[x.cabin_id]||[]).push({s:fromIso(x.start_date),e:fromIso(x.end_date)}));
+    c.forEach(x=>{L.cabins[x.id]=x});
+    r.forEach(x=>(L.rules[x.cabin_id]=L.rules[x.cabin_id]||[]).push({s:fromIso(x.start_date),e:fromIso(x.end_date),price:Number(x.price),min:x.min_nights}));
+    LIVE=L;
+  }catch(e){LIVE=false}
+  if(typeof current!=='undefined'&&current&&current!=='placa'&&DATA[current])refreshCabin();
+}
+let calMonth=new Date(HOJE.getFullYear(),HOJE.getMonth(),1),selA=null,selB=null;
+// as datas guardadas são noites ocupadas: [entrada, saída) — a saída é o dia do check-out
+function occ(id,d){return ((LIVE&&LIVE.blocks[id])||[]).some(r=>d>=r.s&&d<r.e)}
+function canOut(id,a,b){for(let t=new Date(a);t<b;t.setDate(t.getDate()+1)){if(occ(id,t))return false}return true}
+function minNights(id,a){const cab=(LIVE&&LIVE.cabins[id])||{};let r=null;((LIVE&&LIVE.rules[id])||[]).forEach(x=>{if(a>=x.s&&a<=x.e&&x.min!=null&&(!r||x.s>r.s))r=x});return r?r.min:(cab.min_nights||1)}
+function nightPrice(id,d){const cab=(LIVE&&LIVE.cabins[id])||{};let r=null;((LIVE&&LIVE.rules[id])||[]).forEach(x=>{if(d>=x.s&&d<=x.e&&(!r||x.s>r.s))r=x});if(r)return r.price;const w=d.getDay()===5||d.getDay()===6;return(w&&cab.weekend_price!=null)?Number(cab.weekend_price):(cab.base_price!=null?Number(cab.base_price):null)}
+function totalPrice(id,a,b){let sum=0;for(let t=new Date(a);t<b;t.setDate(t.getDate()+1)){const p=nightPrice(id,t);if(p==null)return null;sum+=p}return sum}
+function renderFacts(){
+  const f=document.getElementById('facts');if(!f)return;
+  const cab=LIVE&&LIVE.cabins[current];let from=null;
+  if(cab){[cab.base_price,cab.weekend_price].forEach(v=>{if(v!=null&&(from==null||+v<from))from=+v});((LIVE.rules[current])||[]).forEach(r=>{if(from==null||r.price<from)from=r.price})}
+  const hh=v=>v?String(v).slice(0,5):'—',ph=LIVE===null?'…':'—';
+  const items=[['Hóspedes',cab&&cab.capacity?'até '+cab.capacity:ph],['Diária a partir de',from!=null?brl(from):ph],['Check-in',cab?hh(cab.checkin_time):ph],['Check-out',cab?hh(cab.checkout_time):ph]];
+  f.textContent='';
+  items.forEach(it=>{const d=document.createElement('div');d.className='fact';const b=document.createElement('b');b.textContent=it[0];const sp=document.createElement('span');sp.textContent=it[1];d.append(b,sp);f.appendChild(d)});
+}
+function refreshCabin(){renderFacts();renderCal();renderSum()}
 function renderCal(){
+  const box=document.getElementById('cal');if(!box)return;
+  if(LIVE===null){box.textContent='Carregando disponibilidade…';return}
+  if(LIVE===false){box.innerHTML='<p class="legend">Não foi possível carregar a disponibilidade agora.</p><button type="button" class="ask" id="retry">Tentar de novo</button>';document.getElementById('retry').onclick=()=>{LIVE=null;renderCal();loadLive()};return}
   const id=current,y=calMonth.getFullYear(),m=calMonth.getMonth();
   const first=new Date(y,m,1),start=first.getDay(),days=new Date(y,m+1,0).getDate();
-  let h='<div class="cal-h"><button type="button" id="pm" aria-label="Mês anterior"'+((y===2026&&m===10)?' disabled':'')+'>‹</button><strong>'+MESES[m].charAt(0).toUpperCase()+MESES[m].slice(1)+' de '+y+'</strong><button type="button" id="nm" aria-label="Próximo mês">›</button></div><div class="grid">';
+  let h='<div class="cal-h"><button type="button" id="pm" aria-label="Mês anterior"'+((y===HOJE.getFullYear()&&m===HOJE.getMonth())?' disabled':'')+'>‹</button><strong>'+MESES[m].charAt(0).toUpperCase()+MESES[m].slice(1)+' de '+y+'</strong><button type="button" id="nm" aria-label="Próximo mês">›</button></div><div class="grid">';
   ['D','S','T','Q','Q','S','S'].forEach(x=>h+='<div class="dow">'+x+'</div>');
   for(let i=0;i<start;i++)h+='<div></div>';
   for(let d=1;d<=days;d++){
-    const dt=new Date(y,m,d),past=dt<HOJE,bl=blocked(id,dt);
-    let cls='day';if(bl)cls+=' blk';
+    const dt=new Date(y,m,d),past=dt<HOJE,bl=occ(id,dt),outok=!!(selA&&!selB&&dt>selA&&canOut(id,selA,dt));
+    let cls='day';if(bl)cls+=' blk';if(bl&&outok)cls+=' outok';
     if(selA&&+dt===+selA)cls+=' sel';else if(selB&&+dt===+selB)cls+=' sel';else if(selA&&selB&&dt>selA&&dt<selB)cls+=' rng';
-    h+='<button type="button" class="'+cls+'" data-d="'+d+'"'+((past||bl)?' disabled':'')+'>'+d+'</button>';
+    h+='<button type="button" class="'+cls+'" data-d="'+d+'"'+((past||(bl&&!outok))?' disabled':'')+'>'+d+'</button>';
   }
-  h+='</div><p class="legend">Listrado = já reservado (exemplo). Escolha entrada e saída.</p>';
-  document.getElementById('cal').innerHTML=h;
+  h+='</div><p class="legend">Listrado = já ocupado. Escolha entrada e saída.</p>';
+  box.innerHTML=h;
   document.getElementById('pm').onclick=()=>{calMonth=new Date(y,m-1,1);renderCal()};
   document.getElementById('nm').onclick=()=>{calMonth=new Date(y,m+1,1);renderCal()};
-  document.querySelectorAll('#cal .day').forEach(b=>b.onclick=()=>{
+  box.querySelectorAll('.day').forEach(b=>b.onclick=()=>{
     const dt=new Date(y,m,+b.dataset.d);
-    if(!selA||(selA&&selB)){selA=dt;selB=null}
-    else if(dt<=selA){selA=dt}
-    else{
-      // não atravessar bloqueio
-      let ok=true;for(let t=new Date(selA);t<dt;t.setDate(t.getDate()+1)){if(blocked(id,new Date(t.getTime()+86400000)))ok=false}
-      if(ok)selB=dt;else{selA=dt;selB=null;say('Esse período inclui datas já reservadas.')}
-    }
-    renderCal();renderSum();
+    if(!selA||selB){if(occ(id,dt))return;selA=dt;selB=null}
+    else if(dt<=selA){if(occ(id,dt))return;selA=dt}
+    else if(canOut(id,selA,dt))selB=dt;
+    else if(!occ(id,dt)){selA=dt;selB=null;say('Esse período inclui datas já ocupadas.')}
+    renderCal();renderSum();bkReset();
   });
 }
 function renderSum(){
-  const s=document.getElementById('sum');
-  if(selA&&selB){const n=Math.round((selB-selA)/86400000);s.innerHTML='<b>Entrada</b> '+fmt(selA)+' &nbsp;→&nbsp; <b>Saída</b> '+fmt(selB)+'<br>'+n+(n>1?' noites':' noite')+' · valor: <b>a definir</b>'}
+  const s=document.getElementById('sum');if(!s)return;
+  if(!LIVE){s.textContent='';return}
+  if(selA&&selB){
+    const n=Math.round((selB-selA)/86400000),t=totalPrice(current,selA,selB),mn=minNights(current,selA);
+    let h='<b>Entrada</b> '+fmt(selA)+' &nbsp;→&nbsp; <b>Saída</b> '+fmt(selB)+'<br>'+n+(n>1?' noites':' noite')+(t==null?' · valor: <b>a combinar</b>':' · total estimado: <b>'+brl(t)+'</b>');
+    if(n<mn)h+='<br><span class="warn">Estadia mínima neste período: '+mn+' noites.</span>';
+    s.innerHTML=h}
   else if(selA)s.innerHTML='<b>Entrada</b> '+fmt(selA)+' · escolha a data de saída';
   else s.textContent='Escolha a data de entrada no calendário.';
 }
+function bkReset(){const bk=document.getElementById('bk');if(!bk)return;bk.innerHTML='<button class="cta" type="button" id="cta">Solicitar reserva</button>';document.getElementById('cta').onclick=openForm}
+function openForm(){
+  if(!LIVE){say('Aguarde a disponibilidade carregar.');return}
+  if(!(selA&&selB)){say('Escolha entrada e saída primeiro.');return}
+  const n=Math.round((selB-selA)/86400000),mn=minNights(current,selA);
+  if(n<mn){say('Estadia mínima neste período: '+mn+' noites.');return}
+  const cap=Number((LIVE.cabins[current]||{}).capacity)||2,bk=document.getElementById('bk');
+  let opts='';for(let i=1;i<=cap;i++)opts+='<option value="'+i+'">'+i+(i>1?' hóspedes':' hóspede')+'</option>';
+  bk.innerHTML='<form id="bf" class="bf" novalidate><label>Seu nome<input id="bn" maxlength="80" autocomplete="name"></label><label>WhatsApp ou e-mail<input id="bc" maxlength="120" autocomplete="email"></label><label>Hóspedes<select id="bg">'+opts+'</select></label><label>Mensagem (opcional)<textarea id="bm" rows="2" maxlength="600"></textarea></label><p class="err" id="be" role="alert"></p><button class="cta" type="submit" id="bs">Enviar pedido</button><p class="note">Não há cobrança agora. O anfitrião analisa o pedido e responde pelo contato informado. As datas só ficam reservadas depois da aprovação.</p></form>';
+  const be=document.getElementById('be');
+  document.getElementById('bf').onsubmit=async e=>{
+    e.preventDefault();be.textContent='';
+    const nome=document.getElementById('bn').value.trim(),cont=document.getElementById('bc').value.trim();
+    if(nome.length<2||cont.length<5){be.textContent='Informe seu nome e um WhatsApp ou e-mail.';return}
+    const btn=document.getElementById('bs');btn.disabled=true;btn.textContent='Enviando…';
+    const body={p_cabin:current,p_start:iso(selA),p_end:iso(selB),p_guests:+document.getElementById('bg').value,p_name:nome,p_contact:cont,p_message:document.getElementById('bm').value.trim()||null};
+    try{
+      const r=await fetch(SB_URL+'/rest/v1/rpc/request_booking',{method:'POST',headers:{apikey:SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});
+      if(!r.ok){let m='Não foi possível enviar agora. Tente novamente.',dis=false;
+        try{const j=await r.json();if(j&&j.code==='P0001'&&j.message){m=j.message;dis=/dispon/.test(m)}}catch(_){}
+        be.textContent=m;btn.disabled=false;btn.textContent='Enviar pedido';if(dis)loadLive();return}
+      const a=selA,b=selB;selA=selB=null;renderCal();renderSum();
+      bk.textContent='';const p=document.createElement('p');p.className='ok';
+      p.textContent='Pedido enviado! De '+fmt(a)+' a '+fmt(b)+'. O anfitrião vai analisar e responder pelo contato que você informou. As datas só ficam reservadas depois da aprovação.';
+      bk.appendChild(p);loadLive();
+    }catch(_){be.textContent='Sem conexão. Tente novamente.';btn.disabled=false;btn.textContent='Enviar pedido'}
+  };
+}
 function say(t){toast.textContent=t;toast.classList.add('on');clearTimeout(say.t);say.t=setTimeout(()=>toast.classList.remove('on'),2600)}
 
+loadLive();
 function openCabin(id,instant){
-  current=id;hovered=null;selA=selB=null;calMonth=new Date(2026,10,1);
+  current=id;hovered=null;selA=selB=null;calMonth=new Date(HOJE.getFullYear(),HOJE.getMonth(),1);
   const d=DATA[id];
   panel.innerHTML='<button id="close" type="button" aria-label="Fechar">×</button>'+
    '<button id="grab" type="button" aria-label="Recolher ou expandir detalhes"></button><h2>'+d.nome+'</h2><p class="sub">'+d.sub+'</p>'+
    '<div class="pact"><button type="button" id="pb">← Terreno</button><button type="button" id="pi" class="pri">Ver por dentro</button></div>'+
    '<div class="gal">'+d.fotos.map((f,i)=>'<button type="button" data-i="'+i+'" aria-label="Abrir foto '+(i+1)+'"><img src="'+f+'_t.jpg" alt="" loading="'+(i<3?'eager':'lazy')+'" draggable="false">'+(i===2?'<span class="more">+'+(d.fotos.length-3)+' fotos</span>':'')+'</button>').join('')+'</div>'+
-   '<button type="button" class="ask" id="ask"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Tirar dúvidas com o anfitrião</button>'+
-   '<div class="facts"><div class="fact"><b>Hóspedes</b><span>a definir</span></div><div class="fact"><b>Diária a partir de</b><span>R$ a definir</span></div><div class="fact"><b>Check-in</b><span>a definir</span></div><div class="fact"><b>Check-out</b><span>a definir</span></div></div>'+
+   '<div class="facts" id="facts"></div>'+
    '<h3>Disponibilidade</h3><div id="cal"></div><div class="sum" id="sum"></div>'+
-   '<button class="cta" type="button" id="cta">Solicitar reserva</button>'+
-   '<p class="note">Prévia: fotos, valores e datas reservadas são de exemplo. Os dados reais virão do calendário central.</p>';
+   '<div id="bk"></div>';
   document.body.classList.add('pop');panel.classList.add('on');backBtn.classList.add('on');hint.classList.add('hide');insideBtn.classList.add('on');setInterior(null);
   document.getElementById('close').onclick=goBack;
   const mob=innerWidth<=760;panel.classList.toggle('min',mob);document.getElementById('grab').onclick=()=>panel.classList.toggle('min');
   panel.querySelectorAll('.gal button').forEach(b=>b.onclick=()=>openLB(d.fotos,+b.dataset.i));
   document.getElementById('pb').onclick=goBack;
-  document.getElementById('ask').onclick=()=>openChat(id);
   const pi=document.getElementById('pi');pi.onclick=()=>{insideBtn.click();pi.textContent=interiorOn?'Ver por fora':'Ver por dentro'};
-  if(mob)requestAnimationFrame(()=>{const g=document.getElementById('ask');panel.style.setProperty('--minh',(g.offsetTop+g.offsetHeight+12)+'px')});
-  document.getElementById('cta').onclick=()=>say(selA&&selB?'Prévia: o envio do pedido ainda será construído.':'Escolha entrada e saída primeiro.');
-  renderCal();renderSum();
+  if(mob)requestAnimationFrame(()=>{const g=panel.querySelector('.gal');panel.style.setProperty('--minh',(g.offsetTop+g.offsetHeight+12)+'px')});
+  renderFacts();renderCal();renderSum();bkReset();
   yawOff.t=pitchOff.t=0;zoom.t=1;
   const fp=focusPreset(cabins[id]);
   if(instant){view.pos.copy(fp.pos);view.tgt.copy(fp.tgt);to=null;shift=1}else flyTo(fp,1.8);
@@ -1141,21 +1183,6 @@ function openRoom(id,r){const pre=id==='loom1'?'l1':'l2',list=DATA[id].amb[r.k].
   setTimeout(()=>{if(window.__noLB)return;openLB(list,0);lbBack=()=>{flyTo(back,1.2);setTimeout(()=>{roomsBox.style.opacity='';roomsBox.style.pointerEvents=''},900)}},1350)}
 addEventListener('resize',()=>{if(lb.classList.contains('on'))lbGo(lbI,false)});
 addEventListener('keydown',e=>{if(!lb.classList.contains('on'))return;if(e.key==='ArrowRight')document.getElementById('lbn').click();if(e.key==='ArrowLeft')document.getElementById('lbp').click();if(e.key==='Escape'){closeLB();e.stopImmediatePropagation()}},true);
-const chat=document.getElementById('chat'),chb=document.getElementById('chb'),chf=document.getElementById('chf');
-const convos={};let chatId=null,contact=null;
-function bubble(t,c){const d=document.createElement('div');d.className='msg '+c;d.textContent=t;chb.appendChild(d);chb.scrollTop=chb.scrollHeight}
-function openChat(id){chatId=id;chb.innerHTML='';document.getElementById('chsub').textContent='Sobre a '+DATA[id].nome;
-  (convos[id]||[]).forEach(m=>bubble(m[0],m[1]));
-  if(!convos[id]||!convos[id].length)bubble('Olá! Sou o Felipe, anfitrião das Cabanas Loom. Tem alguma dúvida sobre a '+DATA[id].nome+'? Deixe sua mensagem que eu respondo por aqui e no contato que você informar.','h');
-  document.getElementById('chid').style.display=contact?'none':'flex';chat.classList.add('on');setTimeout(()=>document.getElementById(contact?'cht':'chn').focus(),50)}
-document.getElementById('chx').onclick=()=>chat.classList.remove('on');
-chf.addEventListener('submit',e=>{e.preventDefault();const t=document.getElementById('cht').value.trim();if(!t)return;
-  if(!contact){const n=document.getElementById('chn').value.trim(),c=document.getElementById('chc').value.trim();
-    if(!n||!c){say('Informe seu nome e WhatsApp ou e-mail para receber a resposta.');return}contact={n,c};document.getElementById('chid').style.display='none'}
-  (convos[chatId]=convos[chatId]||[]).push([t,'u']);bubble(t,'u');document.getElementById('cht').value='';
-  const note='Prévia: nesta versão a mensagem ainda não é enviada. No site real ela chega ao anfitrião, que responde aqui e em '+contact.c+'.';
-  convos[chatId].push([note,'s']);setTimeout(()=>bubble(note,'s'),400)});
-document.getElementById('cht').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();chf.requestSubmit()}});
 function openSign(instant){
   document.body.classList.remove('pop');current='placa';hovered=null;panel.classList.remove('on');insideBtn.classList.remove('on');setInterior(null);backBtn.classList.add('on');hint.classList.add('hide');
   yawOff.t=pitchOff.t=0;zoom.t=1;shiftT=0;
@@ -1164,7 +1191,7 @@ function openSign(instant){
   try{history.replaceState(null,'','#placa')}catch(e){}
 }
 function goBack(){
-  chat.classList.remove('on');document.body.classList.remove('pop');current=null;panel.classList.remove('on');backBtn.classList.remove('on');hint.classList.remove('hide');insideBtn.classList.remove('on');setInterior(null);
+  document.body.classList.remove('pop');current=null;panel.classList.remove('on');backBtn.classList.remove('on');hint.classList.remove('hide');insideBtn.classList.remove('on');setInterior(null);
   yawOff.t=pitchOff.t=0;zoom.t=1;shiftT=0;
   try{history.replaceState(null,'',location.pathname+location.search)}catch(e){}
   flyTo(OVERVIEW,1.7);
