@@ -88,6 +88,7 @@ th{font-weight:500;color:var(--mut);font-size:12px}
   <nav>
     <button data-tab="cal" class="on">Calendário</button>
     <button data-tab="preco">Preços e regras</button>
+    <button data-tab="sync">Sincronização</button>
   </nav>
   <main>
     <div id="tab-cal">
@@ -164,6 +165,20 @@ th{font-weight:500;color:var(--mut);font-size:12px}
         <button class="btn" id="addRule">Adicionar período</button>
       </div>
     </div>
+
+    <div id="tab-sync" class="hide">
+      <div class="card">
+        <h2>Calendários do Airbnb e do Booking</h2>
+        <div class="hint" style="margin:0 0 12px">Cole aqui o link iCal (.ics) de cada anúncio. O painel lê esses links a cada 2 minutos e marca as datas como ocupadas.</div>
+        <div class="bar"><button class="btn" id="syncNow">Sincronizar agora</button><span class="hint" id="syncMsg" style="margin:0"></span></div>
+        <div id="srcList"></div>
+      </div>
+      <div class="card">
+        <h2>Links do painel para colar no Airbnb e no Booking</h2>
+        <div class="hint" style="margin:0 0 12px">Cada link só mostra datas ocupadas. Não envie esses links a ninguém: quem tiver o link consegue ler seu calendário.</div>
+        <div id="feedList"></div>
+      </div>
+    </div>
   </main>
 </section>
 <div class="toast" id="toast"></div>
@@ -176,7 +191,7 @@ const sb=window.__mockSb||supabase.createClient(SB_URL,SB_KEY);
 const $=id=>document.getElementById(id);
 const MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 const ORIGEM={manual:'Bloqueio seu',airbnb:'Airbnb',booking:'Booking',site:'Site'};
-let cabins=[],blocks=[],rules=[],view=new Date(),selA=null,selB=null;
+let cabins=[],blocks=[],rules=[],sources=[],feeds=[],view=new Date(),selA=null,selB=null;
 view=new Date(view.getFullYear(),view.getMonth(),1);
 
 /* ---------- datas (sempre DD/MM/AAAA na tela, AAAA-MM-DD no banco) ---------- */
@@ -208,13 +223,15 @@ async function start(){
   await loadAll();
 }
 async function loadAll(){
-  const [c,b,r]=await Promise.all([
+  const [c,b,r,so,fe]=await Promise.all([
     sb.from('cabins').select('*').order('id'),
     sb.from('calendar_blocks').select('*').order('start_date'),
-    sb.from('price_rules').select('*').order('start_date')]);
+    sb.from('price_rules').select('*').order('start_date'),
+    sb.from('ical_sources').select('*').order('cabin_id'),
+    sb.from('ical_feeds').select('*').order('cabin_id')]);
   if(c.error||b.error||r.error){toast('Erro ao carregar dados.');return}
-  cabins=c.data;blocks=b.data;rules=r.data;
-  fillCabinSelects();renderCal();renderBlocks();loadCabinForm();renderRules();
+  cabins=c.data;blocks=b.data;rules=r.data;sources=so.data||[];feeds=fe.data||[];
+  fillCabinSelects();renderCal();renderBlocks();loadCabinForm();renderRules();renderSync();
 }
 function fillCabinSelects(){
   const keep1=$('calCabin').value,keep2=$('prCabin').value;
@@ -228,6 +245,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
   $('tab-cal').classList.toggle('hide',b.dataset.tab!=='cal');
   $('tab-preco').classList.toggle('hide',b.dataset.tab!=='preco');
+  $('tab-sync').classList.toggle('hide',b.dataset.tab!=='sync');
 });
 
 /* ---------- calendário ---------- */
@@ -352,6 +370,52 @@ $('addRule').onclick=async()=>{
   const {error}=await sb.from('price_rules').insert({cabin_id:c.id,name,start_date:from,end_date:to,price,min_nights:numOrNull($('rMin').value)});
   if(error){toast('Não foi possível salvar.');return}
   ['rName','rFrom','rTo','rPrice','rMin'].forEach(i=>$(i).value='');toast('Período adicionado.');loadAll();
+};
+
+/* ---------- sincronização (iCal) ---------- */
+const PLAT={airbnb:'Airbnb',booking:'Booking'};
+const nomeCabana=id=>(cabins.find(c=>c.id===id)||{}).name||id;
+function fmtHora(t){if(!t)return 'nunca';const d=new Date(t);return p2(d.getDate())+'/'+p2(d.getMonth()+1)+'/'+d.getFullYear()+' '+p2(d.getHours())+':'+p2(d.getMinutes())}
+function renderSync(){
+  const L=$('srcList');L.innerHTML='';
+  sources.forEach(src=>{
+    const row=document.createElement('div');row.className='row';
+    const lab=document.createElement('label');lab.textContent=nomeCabana(src.cabin_id)+' · '+PLAT[src.platform];row.appendChild(lab);
+    const line=document.createElement('div');line.className='bar';line.style.marginBottom='4px';
+    const inp=document.createElement('input');inp.value=src.url||'';inp.placeholder='Cole o link .ics aqui';inp.style.flex='1';inp.style.minWidth='220px';
+    const sv=document.createElement('button');sv.className='btn';sv.textContent='Salvar link';
+    sv.onclick=async()=>{const v=inp.value.trim();
+      if(v&&!/^https:\/\//i.test(v)){toast('O link precisa começar com https://');return}
+      const {error}=await sb.from('ical_sources').update({url:v||null,last_status:null,last_error:null}).eq('id',src.id);
+      if(error){toast('Não foi possível salvar.');return}toast('Link salvo.');await loadAll()};
+    line.appendChild(inp);line.appendChild(sv);row.appendChild(line);
+    const st=document.createElement('div');st.className='hint';st.style.marginTop='0';
+    st.textContent=!src.url?'Sem link cadastrado.':(src.last_status==='ok'?'Última leitura: '+fmtHora(src.last_sync_at)+' · '+src.last_count+' datas lidas':
+      src.last_status==='erro'?'Falhou em '+fmtHora(src.last_sync_at)+': '+(src.last_error||''):'Aguardando a primeira leitura.');
+    if(src.last_status==='erro')st.style.color='var(--bad)';
+    row.appendChild(st);L.appendChild(row);
+  });
+  const F=$('feedList');F.innerHTML='';
+  feeds.forEach(f=>{
+    const link=SB_URL+'/functions/v1/ical-export?cabin='+f.cabin_id+'&platform='+f.platform+'&token='+f.token;
+    const row=document.createElement('div');row.className='row';
+    const lab=document.createElement('label');lab.textContent=nomeCabana(f.cabin_id)+' · para colar no '+PLAT[f.platform];row.appendChild(lab);
+    const line=document.createElement('div');line.className='bar';line.style.marginBottom='0';
+    const inp=document.createElement('input');inp.value=link;inp.readOnly=true;inp.style.flex='1';inp.style.minWidth='220px';
+    inp.onfocus=()=>inp.select();
+    const cp=document.createElement('button');cp.className='btn ghost';cp.textContent='Copiar';
+    cp.onclick=async()=>{try{await navigator.clipboard.writeText(link);toast('Link copiado.')}catch(e){inp.select();toast('Selecionado: use Cmd+C.')}};
+    line.appendChild(inp);line.appendChild(cp);row.appendChild(line);F.appendChild(row);
+  });
+}
+$('syncNow').onclick=async()=>{
+  $('syncNow').disabled=true;$('syncMsg').textContent='Sincronizando...';
+  const {data,error}=await sb.functions.invoke('sync-ical',{body:{force:true}});
+  $('syncNow').disabled=false;
+  if(error||!data||data.error){$('syncMsg').textContent='Não foi possível sincronizar agora.';return}
+  const falhas=(data.resumo||[]).filter(x=>!x.ok).length;
+  $('syncMsg').textContent=falhas?'Terminou com '+falhas+' falha(s). Veja abaixo.':'Sincronizado.';
+  await loadAll();
 };
 
 start();
