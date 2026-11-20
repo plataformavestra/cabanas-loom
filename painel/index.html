@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Painel · Cabanas Loom</title>
+<style>
+:root{--bg:#f4efe6;--card:#fffdf8;--ink:#2a2118;--mut:#7a6a58;--line:#e2d8c8;--acc:#8a5a2b;--acc2:#6b4420;--ok:#3f7d4e;--bad:#b3452f;
+--manual:#c98a3d;--airbnb:#d9534f;--booking:#2f6fb3;--site:#3f7d4e}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+h1,h2,h3{font-family:Georgia,'Times New Roman',serif;font-weight:500;margin:0}
+button{font:inherit;cursor:pointer}
+input,select{font:inherit;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);width:100%}
+label{display:block;font-size:13px;color:var(--mut);margin:0 0 4px}
+.btn{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:9px 16px}
+.btn:hover{background:var(--acc2)}
+.btn.ghost{background:transparent;color:var(--acc);border:1px solid var(--line)}
+.btn.ghost:hover{background:#f0e8da}
+.btn.danger{background:transparent;color:var(--bad);border:1px solid var(--line)}
+.btn[disabled]{opacity:.5;cursor:default}
+#login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px;width:100%;max-width:380px}
+.box h1{font-size:26px;margin-bottom:4px}
+.box p{color:var(--mut);margin:0 0 18px}
+.row{margin-bottom:12px}
+.err{color:var(--bad);font-size:13px;min-height:18px;margin-top:6px}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:14px 22px;border-bottom:1px solid var(--line);background:var(--card);position:sticky;top:0;z-index:5}
+header h1{font-size:20px}
+header small{color:var(--mut);margin-right:12px}
+nav{display:flex;gap:6px;padding:12px 22px 0}
+nav button{background:transparent;border:0;border-bottom:2px solid transparent;padding:8px 12px;color:var(--mut)}
+nav button.on{color:var(--ink);border-color:var(--acc)}
+main{padding:18px 22px 60px;max-width:1100px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.card h2{font-size:18px;margin-bottom:10px}
+.bar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.bar select{width:auto}
+.months{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.mon h3{font-size:16px;margin-bottom:6px}
+.grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.dow{font-size:11px;color:var(--mut);text-align:center;padding:2px 0}
+.day{aspect-ratio:1.25;border:1px solid var(--line);border-radius:6px;background:#fff;display:flex;align-items:flex-start;justify-content:flex-start;padding:3px 5px;font-size:12px;cursor:pointer;position:relative;user-select:none}
+.day.past{opacity:.45}
+.day.empty{border:0;background:transparent;cursor:default}
+.day.sel{outline:2px solid var(--acc);background:#f6e9d6}
+.day .b{position:absolute;left:3px;right:3px;bottom:3px;height:5px;border-radius:3px}
+.day .b.manual{background:var(--manual)}.day .b.airbnb{background:var(--airbnb)}.day .b.booking{background:var(--booking)}.day .b.site{background:var(--site)}
+.day.occ{background:#f9f4ea}
+.leg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin:8px 0}
+.leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.selbar{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:12px}
+.selbar>div{flex:1;min-width:140px}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:480px}
+.tw{overflow-x:auto}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
+th{font-weight:500;color:var(--mut);font-size:12px}
+.tag{display:inline-block;padding:1px 8px;border-radius:10px;color:#fff;font-size:12px}
+.tag.manual{background:var(--manual)}.tag.airbnb{background:var(--airbnb)}.tag.booking{background:var(--booking)}.tag.site{background:var(--site)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.hint{color:var(--mut);font-size:13px;margin-top:6px}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:20}
+.toast.on{opacity:1}
+.hide{display:none!important}
+@media(max-width:720px){.months{grid-template-columns:1fr}.g2,.g3{grid-template-columns:1fr}main{padding:14px 12px 60px}header,nav{padding-left:12px;padding-right:12px}}
+</style>
+</head>
+<body>
+
+<section id="login">
+  <form class="box" id="loginForm">
+    <h1>Cabanas Loom</h1>
+    <p>Painel de gestão</p>
+    <div class="row"><label for="em">E-mail</label><input id="em" type="email" autocomplete="username" required></div>
+    <div class="row"><label for="pw">Senha</label><input id="pw" type="password" autocomplete="current-password" required></div>
+    <button class="btn" style="width:100%" id="loginBtn">Entrar</button>
+    <div class="err" id="loginErr"></div>
+  </form>
+</section>
+
+<section id="app" class="hide">
+  <header>
+    <h1>Cabanas Loom · Painel</h1>
+    <div><small id="who"></small><button class="btn ghost" id="logout">Sair</button></div>
+  </header>
+  <nav>
+    <button data-tab="cal" class="on">Calendário</button>
+    <button data-tab="preco">Preços e regras</button>
+  </nav>
+  <main>
+    <div id="tab-cal">
+      <div class="card">
+        <div class="bar">
+          <select id="calCabin"></select>
+          <button class="btn ghost" id="prev">‹ Anterior</button>
+          <button class="btn ghost" id="today">Hoje</button>
+          <button class="btn ghost" id="next">Próximo ›</button>
+        </div>
+        <div class="months" id="months"></div>
+        <div class="leg">
+          <span><i style="background:var(--manual)"></i>Bloqueio seu</span>
+          <span><i style="background:var(--airbnb)"></i>Airbnb</span>
+          <span><i style="background:var(--booking)"></i>Booking</span>
+          <span><i style="background:var(--site)"></i>Site</span>
+        </div>
+        <div class="hint">Clique no primeiro dia e depois no último dia da estadia (as noites ocupadas). O check-out é no dia seguinte ao último dia.</div>
+        <div class="selbar" id="selbar" style="display:none">
+          <div><label>Entrada (check-in)</label><input id="selIn" readonly></div>
+          <div><label>Saída (check-out)</label><input id="selOut" readonly></div>
+          <div style="flex:2"><label>Observação (só você vê)</label><input id="selNote" placeholder="Ex.: manutenção, hóspede por telefone"></div>
+          <button class="btn" id="doBlock">Bloquear</button>
+          <button class="btn ghost" id="clearSel">Cancelar</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Bloqueios e reservas</h2>
+        <div class="tw"><table>
+          <thead><tr><th>Cabana</th><th>Check-in</th><th>Check-out</th><th>Origem</th><th>Obs.</th><th></th></tr></thead>
+          <tbody id="blocks"></tbody>
+        </table></div>
+        <div class="hint" id="blocksEmpty"></div>
+      </div>
+    </div>
+
+    <div id="tab-preco" class="hide">
+      <div class="card">
+        <div class="bar"><select id="prCabin"></select></div>
+        <h2>Dados da cabana</h2>
+        <div class="g2">
+          <div class="row"><label>Nome</label><input id="fName"></div>
+          <div class="row"><label>Capacidade (pessoas)</label><input id="fCap" type="number" min="1"></div>
+        </div>
+        <div class="g3">
+          <div class="row"><label>Diária base (R$)</label><input id="fBase" type="number" min="0" step="0.01"></div>
+          <div class="row"><label>Diária sex/sáb (R$)</label><input id="fWeek" type="number" min="0" step="0.01"></div>
+          <div class="row"><label>Mínimo de noites</label><input id="fMin" type="number" min="1"></div>
+        </div>
+        <div class="g2">
+          <div class="row"><label>Check-in a partir de</label><input id="fIn" type="time"></div>
+          <div class="row"><label>Check-out até</label><input id="fOut" type="time"></div>
+        </div>
+        <button class="btn" id="saveCabin">Salvar dados</button>
+      </div>
+      <div class="card">
+        <h2>Preços por período (temporada, feriados)</h2>
+        <div class="hint" style="margin:0 0 10px">O preço do período substitui a diária base nas datas informadas.</div>
+        <div class="tw"><table>
+          <thead><tr><th>Nome</th><th>De</th><th>Até</th><th>Diária</th><th>Mín. noites</th><th></th></tr></thead>
+          <tbody id="rules"></tbody>
+        </table></div>
+        <div class="hint" id="rulesEmpty"></div>
+        <h3 style="font-size:16px;margin:18px 0 8px">Novo período</h3>
+        <div class="g3">
+          <div class="row"><label>Nome</label><input id="rName" placeholder="Ex.: Réveillon"></div>
+          <div class="row"><label>De (DD/MM/AAAA)</label><input id="rFrom" placeholder="20/12/2026" inputmode="numeric" maxlength="10"></div>
+          <div class="row"><label>Até (DD/MM/AAAA)</label><input id="rTo" placeholder="03/01/2027" inputmode="numeric" maxlength="10"></div>
+        </div>
+        <div class="g2">
+          <div class="row"><label>Diária (R$)</label><input id="rPrice" type="number" min="0" step="0.01"></div>
+          <div class="row"><label>Mínimo de noites (opcional)</label><input id="rMin" type="number" min="1"></div>
+        </div>
+        <button class="btn" id="addRule">Adicionar período</button>
+      </div>
+    </div>
+  </main>
+</section>
+<div class="toast" id="toast"></div>
+
+<script src="supabase.js"></script>
+<script>
+const SB_URL='https://voveeogibxytqladwiqr.supabase.co';
+const SB_KEY='sb_publishable_NmufNWN4WlGBLfXi9eJ0UA_7IKtpy5X';
+const sb=window.__mockSb||supabase.createClient(SB_URL,SB_KEY);
+const $=id=>document.getElementById(id);
+const MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
+const ORIGEM={manual:'Bloqueio seu',airbnb:'Airbnb',booking:'Booking',site:'Site'};
+let cabins=[],blocks=[],rules=[],view=new Date(),selA=null,selB=null;
+view=new Date(view.getFullYear(),view.getMonth(),1);
+
+/* ---------- datas (sempre DD/MM/AAAA na tela, AAAA-MM-DD no banco) ---------- */
+const p2=n=>String(n).padStart(2,'0');
+const iso=d=>d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate());
+const fromIso=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};
+const br=s=>{const [y,m,d]=s.split('-');return d+'/'+m+'/'+y};
+const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+function parseBr(t){const m=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(t.trim());if(!m)return null;const d=new Date(+m[3],+m[2]-1,+m[1]);if(d.getMonth()!==+m[2]-1)return null;return iso(d)}
+
+function toast(t){const e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>e.classList.remove('on'),2600)}
+function maskDate(el){el.addEventListener('input',()=>{let v=el.value.replace(/\D/g,'').slice(0,8);if(v.length>4)v=v.slice(0,2)+'/'+v.slice(2,4)+'/'+v.slice(4);else if(v.length>2)v=v.slice(0,2)+'/'+v.slice(2);el.value=v})}
+
+/* ---------- login ---------- */
+$('loginForm').addEventListener('submit',async e=>{
+  e.preventDefault();$('loginErr').textContent='';$('loginBtn').disabled=true;
+  const {error}=await sb.auth.signInWithPassword({email:$('em').value.trim(),password:$('pw').value});
+  $('loginBtn').disabled=false;
+  if(error){$('loginErr').textContent='E-mail ou senha incorretos.';return}
+  start();
+});
+$('logout').onclick=async()=>{await sb.auth.signOut();location.reload()};
+
+async function start(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(!session){$('login').classList.remove('hide');$('app').classList.add('hide');return}
+  $('login').classList.add('hide');$('app').classList.remove('hide');
+  $('who').textContent=session.user.email;
+  await loadAll();
+}
+async function loadAll(){
+  const [c,b,r]=await Promise.all([
+    sb.from('cabins').select('*').order('id'),
+    sb.from('calendar_blocks').select('*').order('start_date'),
+    sb.from('price_rules').select('*').order('start_date')]);
+  if(c.error||b.error||r.error){toast('Erro ao carregar dados.');return}
+  cabins=c.data;blocks=b.data;rules=r.data;
+  fillCabinSelects();renderCal();renderBlocks();loadCabinForm();renderRules();
+}
+function fillCabinSelects(){
+  const keep1=$('calCabin').value,keep2=$('prCabin').value;
+  $('calCabin').innerHTML='<option value="all">Todas as cabanas</option>'+cabins.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  $('prCabin').innerHTML=cabins.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  if(keep1)$('calCabin').value=keep1;if(keep2)$('prCabin').value=keep2;
+}
+
+/* ---------- abas ---------- */
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
+  $('tab-cal').classList.toggle('hide',b.dataset.tab!=='cal');
+  $('tab-preco').classList.toggle('hide',b.dataset.tab!=='preco');
+});
+
+/* ---------- calendário ---------- */
+function cabinFilter(){return $('calCabin').value}
+function occupancy(day){ // retorna lista de origens que ocupam a noite `day`
+  const k=iso(day),f=cabinFilter();
+  return blocks.filter(b=>(f==='all'||b.cabin_id===f)&&b.start_date<=k&&k<b.end_date).map(b=>b.source);
+}
+function renderCal(){
+  const wrap=$('months');wrap.innerHTML='';
+  for(let i=0;i<2;i++){
+    const m=new Date(view.getFullYear(),view.getMonth()+i,1);
+    const box=document.createElement('div');box.className='mon';
+    const h=document.createElement('h3');h.textContent=MESES[m.getMonth()][0].toUpperCase()+MESES[m.getMonth()].slice(1)+' de '+m.getFullYear();box.appendChild(h);
+    const g=document.createElement('div');g.className='grid';
+    ['D','S','T','Q','Q','S','S'].forEach(x=>{const d=document.createElement('div');d.className='dow';d.textContent=x;g.appendChild(d)});
+    for(let k=0;k<m.getDay();k++){const e=document.createElement('div');e.className='day empty';g.appendChild(e)}
+    const last=new Date(m.getFullYear(),m.getMonth()+1,0).getDate();
+    const hoje=new Date();hoje.setHours(0,0,0,0);
+    for(let d=1;d<=last;d++){
+      const dt=new Date(m.getFullYear(),m.getMonth(),d);
+      const el=document.createElement('div');el.className='day';el.textContent=d;
+      if(dt<hoje)el.classList.add('past');
+      const occ=occupancy(dt);
+      if(occ.length){el.classList.add('occ');const b=document.createElement('span');b.className='b '+occ[0];el.appendChild(b)}
+      const k=iso(dt);
+      if(selA&&selB&&k>=selA&&k<=selB||selA&&!selB&&k===selA)el.classList.add('sel');
+      el.onclick=()=>pick(k);
+      g.appendChild(el);
+    }
+    box.appendChild(g);wrap.appendChild(box);
+  }
+}
+function pick(k){
+  if(cabinFilter()==='all'){toast('Escolha uma cabana para bloquear datas.');return}
+  if(!selA||selB){selA=k;selB=null}
+  else{if(k<selA){selB=selA;selA=k}else selB=k}
+  updateSel();renderCal();
+}
+function updateSel(){
+  const bar=$('selbar');
+  if(!selA){bar.style.display='none';return}
+  bar.style.display='flex';
+  const last=selB||selA;
+  $('selIn').value=br(selA);
+  $('selOut').value=br(iso(addDays(fromIso(last),1)));
+  $('doBlock').disabled=false;
+}
+$('clearSel').onclick=()=>{selA=selB=null;updateSel();renderCal()};
+$('doBlock').onclick=async()=>{
+  const f=cabinFilter();if(f==='all'||!selA)return;
+  const last=selB||selA,end=iso(addDays(fromIso(last),1));
+  const clash=blocks.some(b=>b.cabin_id===f&&b.start_date<end&&b.end_date>selA);
+  if(clash&&!confirm('Já existe reserva ou bloqueio nessas datas. Bloquear mesmo assim?'))return;
+  $('doBlock').disabled=true;
+  const {error}=await sb.from('calendar_blocks').insert({cabin_id:f,start_date:selA,end_date:end,source:'manual',note:$('selNote').value.trim()||null});
+  if(error){toast('Não foi possível salvar.');$('doBlock').disabled=false;return}
+  $('selNote').value='';selA=selB=null;updateSel();toast('Datas bloqueadas.');await loadAll();
+};
+$('prev').onclick=()=>{view=new Date(view.getFullYear(),view.getMonth()-1,1);renderCal()};
+$('next').onclick=()=>{view=new Date(view.getFullYear(),view.getMonth()+1,1);renderCal()};
+$('today').onclick=()=>{const n=new Date();view=new Date(n.getFullYear(),n.getMonth(),1);renderCal()};
+$('calCabin').onchange=()=>{selA=selB=null;updateSel();renderCal();renderBlocks()};
+
+function renderBlocks(){
+  const f=cabinFilter(),tb=$('blocks');tb.innerHTML='';
+  const hojeIso=iso(new Date());
+  const list=blocks.filter(b=>(f==='all'||b.cabin_id===f)&&b.end_date>=hojeIso);
+  $('blocksEmpty').textContent=list.length?'':'Nenhum bloqueio ou reserva futura.';
+  const nome=id=>(cabins.find(c=>c.id===id)||{}).name||id;
+  list.forEach(b=>{
+    const tr=document.createElement('tr');
+    const cells=[nome(b.cabin_id),br(b.start_date),br(b.end_date)];
+    cells.forEach(t=>{const td=document.createElement('td');td.textContent=t;tr.appendChild(td)});
+    const tdO=document.createElement('td');const tag=document.createElement('span');tag.className='tag '+b.source;tag.textContent=ORIGEM[b.source]||b.source;tdO.appendChild(tag);tr.appendChild(tdO);
+    const tdN=document.createElement('td');tdN.textContent=b.note||'';tr.appendChild(tdN);
+    const tdX=document.createElement('td');
+    if(b.source==='manual'){const x=document.createElement('button');x.className='btn danger';x.textContent='Remover';
+      x.onclick=async()=>{if(!confirm('Remover este bloqueio?'))return;const {error}=await sb.from('calendar_blocks').delete().eq('id',b.id);if(error){toast('Não foi possível remover.');return}toast('Bloqueio removido.');loadAll()};
+      tdX.appendChild(x)}
+    tr.appendChild(tdX);tb.appendChild(tr);
+  });
+}
+
+/* ---------- preços e regras ---------- */
+function curCabin(){return cabins.find(c=>c.id===$('prCabin').value)}
+function loadCabinForm(){
+  const c=curCabin();if(!c)return;
+  $('fName').value=c.name||'';$('fCap').value=c.capacity??'';$('fBase').value=c.base_price??'';
+  $('fWeek').value=c.weekend_price??'';$('fMin').value=c.min_nights??1;
+  $('fIn').value=(c.checkin_time||'15:00').slice(0,5);$('fOut').value=(c.checkout_time||'11:00').slice(0,5);
+}
+$('prCabin').onchange=()=>{loadCabinForm();renderRules()};
+const numOrNull=v=>v===''?null:Number(v);
+$('saveCabin').onclick=async()=>{
+  const c=curCabin();if(!c)return;
+  const upd={name:$('fName').value.trim()||c.name,capacity:numOrNull($('fCap').value),base_price:numOrNull($('fBase').value),
+    weekend_price:numOrNull($('fWeek').value),min_nights:Math.max(1,Number($('fMin').value)||1),
+    checkin_time:$('fIn').value||'15:00',checkout_time:$('fOut').value||'11:00'};
+  const {error}=await sb.from('cabins').update(upd).eq('id',c.id);
+  if(error){toast('Não foi possível salvar.');return}
+  toast('Dados salvos.');await loadAll();
+};
+function renderRules(){
+  const c=curCabin(),tb=$('rules');tb.innerHTML='';if(!c)return;
+  const list=rules.filter(r=>r.cabin_id===c.id);
+  $('rulesEmpty').textContent=list.length?'':'Nenhum período cadastrado.';
+  list.forEach(r=>{
+    const tr=document.createElement('tr');
+    [r.name,br(r.start_date),br(r.end_date),'R$ '+Number(r.price).toLocaleString('pt-BR',{minimumFractionDigits:2}),r.min_nights??'—'].forEach(t=>{const td=document.createElement('td');td.textContent=t;tr.appendChild(td)});
+    const td=document.createElement('td');const x=document.createElement('button');x.className='btn danger';x.textContent='Remover';
+    x.onclick=async()=>{if(!confirm('Remover este período?'))return;const {error}=await sb.from('price_rules').delete().eq('id',r.id);if(error){toast('Não foi possível remover.');return}toast('Período removido.');loadAll()};
+    td.appendChild(x);tr.appendChild(td);tb.appendChild(tr);
+  });
+}
+maskDate($('rFrom'));maskDate($('rTo'));
+$('addRule').onclick=async()=>{
+  const c=curCabin();if(!c)return;
+  const name=$('rName').value.trim(),from=parseBr($('rFrom').value),to=parseBr($('rTo').value),price=Number($('rPrice').value);
+  if(!name||!from||!to||!(price>=0)||$('rPrice').value===''){toast('Preencha nome, datas (DD/MM/AAAA) e diária.');return}
+  if(to<from){toast('A data final é anterior à inicial.');return}
+  const {error}=await sb.from('price_rules').insert({cabin_id:c.id,name,start_date:from,end_date:to,price,min_nights:numOrNull($('rMin').value)});
+  if(error){toast('Não foi possível salvar.');return}
+  ['rName','rFrom','rTo','rPrice','rMin'].forEach(i=>$(i).value='');toast('Período adicionado.');loadAll();
+};
+
+start();
+</script>
+</body>
+</html>
