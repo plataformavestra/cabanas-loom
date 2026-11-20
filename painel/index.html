@@ -256,6 +256,7 @@ function fillCabinSelects(){
 }
 
 /* ---------- reservas (pedidos vindos do site) ---------- */
+function fmtPhone(d){d=String(d).replace(/\D/g,'');if(d.length===11)return '('+d.slice(0,2)+') '+d.slice(2,7)+'-'+d.slice(7);if(d.length===10)return '('+d.slice(0,2)+') '+d.slice(2,6)+'-'+d.slice(6);return d}
 function cabName(id){const c=cabins.find(x=>x.id===id);return c?c.name:id}
 function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
 function conflictOf(r){return blocks.filter(b=>b.cabin_id===r.cabin_id&&b.start_date<r.end_date&&b.end_date>r.start_date)}
@@ -271,7 +272,11 @@ function renderRes(){
     const n=Math.round((fromIso(r.end_date)-fromIso(r.start_date))/86400000);
     box.appendChild(el('h3',null,cabName(r.cabin_id)+' · '+br(r.start_date)+' → '+br(r.end_date)+' ('+n+(n>1?' noites':' noite')+')'));
     box.appendChild(el('p',null,r.guest_name+' · '+r.guests+(r.guests>1?' hóspedes':' hóspede')));
-    box.appendChild(el('p',null,'Contato: '+r.guest_contact));
+    box.appendChild(el('p',null,'E-mail: '+(r.guest_email||r.guest_contact)));
+    if(r.guest_phone){
+      const pw=el('p',null,'WhatsApp: '+fmtPhone(r.guest_phone)+' ');
+      const wa=el('a',null,'abrir conversa');wa.href='https://wa.me/55'+r.guest_phone;wa.target='_blank';wa.rel='noopener';pw.appendChild(wa);box.appendChild(pw);
+    }
     if(r.message)box.appendChild(el('p','hint','“'+r.message+'”'));
     box.appendChild(el('p','hint','Pedido em '+new Date(r.created_at).toLocaleString('pt-BR')));
     const cf=conflictOf(r);
