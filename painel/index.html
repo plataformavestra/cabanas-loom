@@ -91,6 +91,7 @@ th{font-weight:500;color:var(--mut);font-size:12px}
     <button data-tab="preco">Preços e regras</button>
     <button data-tab="sync">Sincronização</button>
     <button data-tab="res" id="navRes">Reservas</button>
+    <button data-tab="msg">Mensagens automáticas</button>
   </nav>
   <main>
     <div id="tab-cal">
@@ -184,6 +185,23 @@ th{font-weight:500;color:var(--mut);font-size:12px}
       </div>
     </div>
 
+    <div id="tab-msg" class="hide">
+      <div class="card">
+        <h2>Seu WhatsApp</h2>
+        <div class="hint" style="margin:0 0 10px">É o número que o hóspede vê nos e-mails. No texto, escreva <b>{whatsapp}</b> e ele é trocado pelo número.</div>
+        <div class="bar"><input id="msgWa" inputmode="tel" maxlength="15" placeholder="(48) 99999-9999" style="max-width:240px"><button class="btn" id="msgWaSave" type="button">Salvar</button></div>
+      </div>
+      <div class="card">
+        <h2>Textos dos e-mails</h2>
+        <div class="hint" style="margin:0 0 10px">Cada cabana tem os seus textos. Apague, cole o texto novo e clique em Salvar: o próximo e-mail enviado já sai com ele.</div>
+        <label for="msgCabin">Cabana</label>
+        <select id="msgCabin" style="max-width:260px"></select>
+        <div class="hint" style="margin-top:12px">Dados que você pode usar no assunto e no texto (clique para inserir onde o cursor está):</div>
+        <div id="msgVars" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+      </div>
+      <div id="msgBlocks"></div>
+    </div>
+
     <div id="tab-sync" class="hide">
       <div class="card">
         <h2>Calendários do Airbnb e do Booking</h2>
@@ -209,6 +227,7 @@ const sb=window.__mockSb||supabase.createClient(SB_URL,SB_KEY);
 const $=id=>document.getElementById(id);
 const MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 const ORIGEM={manual:'Bloqueio seu',airbnb:'Airbnb',booking:'Booking',site:'Site'};
+let templates=null,settings={},msgDirty=false,lastField=null;
 let cabins=[],blocks=[],rules=[],sources=[],feeds=[],requests=null,view=new Date(),selA=null,selB=null;
 view=new Date(view.getFullYear(),view.getMonth(),1);
 
@@ -251,7 +270,9 @@ async function loadAll(){
   cabins=c.data;blocks=b.data;rules=r.data;sources=so.data||[];feeds=fe.data||[];
   const rq=await sb.from('booking_requests').select('*').order('created_at',{ascending:false}).limit(200);
   requests=rq.error?null:(rq.data||[]);
-  fillCabinSelects();renderCal();renderBlocks();loadCabinForm();renderRules();renderSync();renderRes();
+  const mt=await sb.from('message_templates').select('*');templates=mt.error?null:(mt.data||[]);
+  const st=await sb.from('app_settings').select('*');settings={};(st.data||[]).forEach(x=>{settings[x.key]=x.value});
+  fillCabinSelects();renderCal();renderBlocks();loadCabinForm();renderRules();renderSync();renderRes();renderMsg();
 }
 function fillCabinSelects(){
   const keep1=$('calCabin').value,keep2=$('prCabin').value;
@@ -393,6 +414,92 @@ function renderRes(){
   done.appendChild(tb);
 }
 
+/* ---------- mensagens automáticas ---------- */
+const MSG_VARS=[['nome','primeiro nome do hóspede'],['nome_completo','nome completo'],['cabana','nome da cabana'],['entrada','data de entrada'],['saida','data de saída'],['noites','número de noites'],['hospedes','número de hóspedes'],['valor','valor pago'],['checkin_hora','horário de check-in'],['checkout_hora','horário de check-out'],['whatsapp','seu WhatsApp']];
+const MSG_KINDS=[
+  {k:'confirmacao',t:'E-mail 1 · Reserva confirmada',q:'Enviado automaticamente assim que o pagamento é confirmado.'},
+  {k:'checkin',t:'E-mail 2 · Orientações de check-in',q:'Enviado automaticamente alguns dias antes da chegada.'}];
+function fillTpl(t,v){return String(t).replace(/\{(\w+)\}/g,(m,k)=>(k in v)?v[k]:m)}
+function sampleVars(cabId){
+  const c=cabins.find(x=>x.id===cabId)||{},d=new Date();d.setDate(d.getDate()+10);const e=new Date(d);e.setDate(e.getDate()+2);
+  const hh=v=>v?String(v).slice(0,5):'15:00';
+  return {nome:'Maria',nome_completo:'Maria da Silva',cabana:c.name||'Cabana',entrada:br(iso(d)),saida:br(iso(e)),noites:'2',hospedes:'2',valor:money(1200),checkin_hora:hh(c.checkin_time),checkout_hora:hh(c.checkout_time),whatsapp:settings.whatsapp_host?fmtPhone(settings.whatsapp_host):'(48) 99999-9999'};
+}
+function insertAtCursor(f,txt){
+  const s0=(f.selectionStart!=null)?f.selectionStart:f.value.length,e0=(f.selectionEnd!=null)?f.selectionEnd:s0;
+  f.value=f.value.slice(0,s0)+txt+f.value.slice(e0);f.focus();const p=s0+txt.length;f.setSelectionRange(p,p);f.dispatchEvent(new Event('input'));
+}
+function renderMsg(){
+  const blocks_=$('msgBlocks');
+  if(templates===null){blocks_.textContent='';blocks_.appendChild(el('div','card')).appendChild(el('p','hint','Esta seção ainda não foi ativada no banco de dados.'));return}
+  // número do WhatsApp
+  if(document.activeElement!==$('msgWa'))$('msgWa').value=settings.whatsapp_host?fmtPhone(settings.whatsapp_host):'';
+  // select de cabanas
+  const sel=$('msgCabin'),keep=sel.value;
+  sel.innerHTML='';cabins.forEach(c=>{const o=document.createElement('option');o.value=c.id;o.textContent=c.name;sel.appendChild(o)});
+  if(keep&&cabins.some(c=>c.id===keep))sel.value=keep;
+  // chips de variáveis
+  const vb=$('msgVars');vb.textContent='';
+  MSG_VARS.forEach(([k,desc])=>{const b=el('button','btn ghost','{'+k+'}');b.type='button';b.title=desc;b.style.cssText='padding:4px 9px;font-size:12px';
+    b.onclick=()=>{if(lastField&&document.body.contains(lastField))insertAtCursor(lastField,'{'+k+'}');else toast('Clique antes no campo onde quer inserir.')};vb.appendChild(b)});
+  if(msgDirty)return; // não apaga o que você está digitando
+  blocks_.textContent='';
+  const cab=sel.value;
+  MSG_KINDS.forEach(K=>{
+    const row=templates.find(t=>t.cabin_id===cab&&t.kind===K.k)||{cabin_id:cab,kind:K.k,subject:'',body:'',days_before:2};
+    const card=el('div','card');card.appendChild(el('h2',null,K.t));card.appendChild(el('p','hint',K.q));
+    let days=null;
+    if(K.k==='checkin'){
+      const w=el('div',null);w.style.cssText='margin:10px 0;max-width:300px';w.appendChild(el('label',null,'Enviar quantos dias antes da chegada'));
+      days=document.createElement('select');for(let i=1;i<=7;i++){const o=document.createElement('option');o.value=i;o.textContent=i+(i>1?' dias antes':' dia antes');days.appendChild(o)}
+      days.value=String(row.days_before||2);days.onchange=()=>{msgDirty=true};w.appendChild(days);card.appendChild(w);
+    }
+    const l1=el('label',null,'Assunto');l1.style.marginTop='10px';card.appendChild(l1);
+    const sub=document.createElement('input');sub.value=row.subject||'';sub.maxLength=150;card.appendChild(sub);
+    const l2=el('label',null,'Texto do e-mail');l2.style.marginTop='10px';card.appendChild(l2);
+    const body=document.createElement('textarea');body.value=row.body||'';body.rows=16;body.maxLength=8000;
+    body.style.cssText='font:inherit;width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--ink);line-height:1.5';card.appendChild(body);
+    const warn=el('p','hint','');warn.style.cssText='color:var(--bad);font-weight:600';card.appendChild(warn);
+    const prev=el('div',null);prev.style.cssText='display:none;margin-top:10px;padding:12px;border:1px dashed var(--line);border-radius:8px;background:#fff';
+    const check=()=>{
+      const msgs=[];
+      if(/\[SUBSTITUA/i.test(body.value))msgs.push('Este texto ainda tem o trecho de exemplo entre colchetes. Substitua pelas suas orientações antes de usar.');
+      const known=new Set(MSG_VARS.map(v=>v[0])),bad=new Set();(sub.value+' '+body.value).replace(/\{(\w+)\}/g,(m,k)=>{if(!known.has(k))bad.add(m)});
+      if(bad.size)msgs.push('Dado desconhecido (vai sair escrito assim no e-mail): '+[...bad].join(', '));
+      warn.textContent=msgs.join(' ');
+    };
+    [sub,body].forEach(f=>{f.addEventListener('focus',()=>{lastField=f});f.addEventListener('input',()=>{msgDirty=true;check();if(prev.style.display!=='none')draw()})});
+    const draw=()=>{const v=sampleVars(cab);prev.textContent='';const a=el('p',null,'Assunto: '+fillTpl(sub.value,v));a.style.cssText='font-weight:700;margin:0 0 8px';prev.appendChild(a);const b=el('div',null,fillTpl(body.value,v));b.style.whiteSpace='pre-wrap';prev.appendChild(b);prev.appendChild(el('p','hint','Prévia com dados de exemplo.'))};
+    const bar=el('div','bar');bar.style.marginTop='10px';
+    const save=el('button','btn','Salvar');save.type='button';
+    save.onclick=async()=>{
+      if(!sub.value.trim()||!body.value.trim()){toast('Preencha o assunto e o texto.');return}
+      save.disabled=true;
+      const rowNew={cabin_id:cab,kind:K.k,subject:sub.value.trim(),body:body.value,days_before:days?+days.value:2,updated_at:new Date().toISOString()};
+      const {error}=await sb.from('message_templates').upsert(rowNew,{onConflict:'cabin_id,kind'});
+      save.disabled=false;
+      if(error){toast('Não foi possível salvar.');return}
+      const i=templates.findIndex(t=>t.cabin_id===cab&&t.kind===K.k);if(i>=0)templates[i]=rowNew;else templates.push(rowNew);
+      msgDirty=false;toast('Texto salvo.');
+    };
+    const pv=el('button','btn ghost','Ver prévia');pv.type='button';
+    pv.onclick=()=>{const open=prev.style.display==='none';prev.style.display=open?'block':'none';pv.textContent=open?'Esconder prévia':'Ver prévia';if(open)draw()};
+    bar.append(save,pv);card.appendChild(bar);card.appendChild(prev);check();blocks_.appendChild(card);
+  });
+}
+$('msgCabin').onchange=()=>{if(msgDirty&&!confirm('Você tem alterações sem salvar. Trocar de cabana mesmo assim?')){return}msgDirty=false;renderMsg()};
+$('msgWa').addEventListener('input',()=>{$('msgWa').value=maskFone($('msgWa').value)});
+function maskFone(v){let d=String(v).replace(/\D/g,'');if(d.length>11&&d.startsWith('55'))d=d.slice(2);d=d.slice(0,11);if(!d)return '';if(d.length<3)return '('+d;const dd='('+d.slice(0,2)+') ',r=d.slice(2);if(d.length<=6)return dd+r;if(d.length<=10)return dd+r.slice(0,4)+'-'+r.slice(4);return dd+r.slice(0,5)+'-'+r.slice(5)}
+$('msgWaSave').onclick=async()=>{
+  const d=$('msgWa').value.replace(/\D/g,'');
+  if(d.length<10||d.length>11||d.charAt(0)==='0'){toast('Informe o WhatsApp com DDD.');return}
+  $('msgWaSave').disabled=true;
+  const {error}=await sb.from('app_settings').upsert({key:'whatsapp_host',value:d,updated_at:new Date().toISOString()},{onConflict:'key'});
+  $('msgWaSave').disabled=false;
+  if(error){toast('Não foi possível salvar.');return}
+  settings.whatsapp_host=d;toast('WhatsApp salvo.');
+};
+
 /* ---------- abas ---------- */
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
@@ -400,6 +507,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   $('tab-preco').classList.toggle('hide',b.dataset.tab!=='preco');
   $('tab-sync').classList.toggle('hide',b.dataset.tab!=='sync');
   $('tab-res').classList.toggle('hide',b.dataset.tab!=='res');
+  $('tab-msg').classList.toggle('hide',b.dataset.tab!=='msg');
 });
 
 /* ---------- calendário ---------- */
