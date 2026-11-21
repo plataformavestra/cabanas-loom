@@ -87,6 +87,7 @@ h3{font-family:Fraunces,serif;font-weight:600;font-size:17px;margin:4px 0 6px}
 .bf label{display:block;font-size:12px;color:var(--ink2);margin-bottom:8px}
 .bf input,.bf select,.bf textarea{display:block;width:100%;margin-top:3px;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font:14px Inter,sans-serif;background:#fff;color:var(--ink);resize:none;box-sizing:border-box}
 .bf .err{color:#a33;font-size:13px;margin:6px 0}
+.bf .ck{display:flex;gap:10px;align-items:flex-start;font-size:12px;line-height:1.4;margin:10px 0 4px}.bf .ck input{width:20px;height:20px;margin:0;padding:0;flex:none}.bf .ck a{color:var(--wood-d);text-decoration:underline}
 .cta:disabled{opacity:.6;cursor:default}
 .ok{font-size:14px;line-height:1.5;padding:12px;background:#e7efe6;border:1px solid #c9d9c8;border-radius:10px}
 .warn{color:#a33}
@@ -1037,6 +1038,7 @@ const iso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+Stri
 const fromIso=t=>{const p=t.split('-');return new Date(+p[0],+p[1]-1,+p[2])};
 const brl=v=>'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
 const SB_URL='https://voveeogibxytqladwiqr.supabase.co',SB_KEY='sb_publishable_NmufNWN4WlGBLfXi9eJ0UA_7IKtpy5X';
+const TERMOS_VERSAO='2026-11-21';
 let LIVE=null; // null = carregando · false = falhou · objeto = dados reais do painel
 async function sbGet(path){const r=await fetch(SB_URL+'/rest/v1/'+path,{headers:{apikey:SB_KEY}});if(!r.ok)throw new Error('http '+r.status);return r.json()}
 async function loadLive(){
@@ -1131,7 +1133,7 @@ function openForm(){
   if(n<mn){say('Estadia mínima neste período: '+mn+' noites.');return}
   const cap=Number((LIVE.cabins[current]||{}).capacity)||2,bk=document.getElementById('bk');
   let opts='';for(let i=1;i<=cap;i++)opts+='<option value="'+i+'">'+i+(i>1?' hóspedes':' hóspede')+'</option>';
-  bk.innerHTML='<form id="bf" class="bf" novalidate><label>Seu nome completo<input id="bn" maxlength="80" autocomplete="name" autocapitalize="words" placeholder="Maria da Silva"></label><label>E-mail<input id="be2" type="email" maxlength="120" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="voce@exemplo.com"></label><label>WhatsApp<input id="bp" type="tel" maxlength="15" autocomplete="tel-national" inputmode="tel" placeholder="(48) 99999-9999"></label><label>CPF<input id="bc" maxlength="14" autocomplete="off" inputmode="numeric" placeholder="000.000.000-00"></label><label>Hóspedes<select id="bg">'+opts+'</select></label><label>Mensagem (opcional)<textarea id="bm" rows="2" maxlength="600"></textarea></label><p class="err" id="be" role="alert"></p><button class="cta" type="submit" id="bs">Enviar pedido</button><p class="note">Não há cobrança agora. O anfitrião analisa o pedido e responde por e-mail. Se aprovado, você recebe um link para pagar (Pix, cartão ou boleto) e as datas ficam reservadas para você por 24 horas. Usamos seus dados apenas para este pedido e para emitir a cobrança.</p></form>';
+  bk.innerHTML='<form id="bf" class="bf" novalidate><label>Seu nome completo<input id="bn" maxlength="80" autocomplete="name" autocapitalize="words" placeholder="Maria da Silva"></label><label>E-mail<input id="be2" type="email" maxlength="120" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="voce@exemplo.com"></label><label>WhatsApp<input id="bp" type="tel" maxlength="15" autocomplete="tel-national" inputmode="tel" placeholder="(48) 99999-9999"></label><label>CPF<input id="bc" maxlength="14" autocomplete="off" inputmode="numeric" placeholder="000.000.000-00"></label><label>Hóspedes<select id="bg">'+opts+'</select></label><label>Mensagem (opcional)<textarea id="bm" rows="2" maxlength="600"></textarea></label><label class="ck"><input type="checkbox" id="ba"><span>Li e concordo com a <a href="/privacidade/" target="_blank" rel="noopener">Política de Privacidade</a> e com as <a href="/regras/" target="_blank" rel="noopener">Regras de reserva e cancelamento</a>.</span></label><p class="err" id="be" role="alert"></p><button class="cta" type="submit" id="bs">Enviar pedido</button><p class="note">Não há cobrança agora. O anfitrião analisa o pedido e responde por e-mail. Se aprovado, você recebe um link para pagar (Pix, cartão ou boleto) e as datas ficam reservadas para você por 24 horas. Usamos seus dados apenas para este pedido e para emitir a cobrança.</p></form>';
   const be=document.getElementById('be');
   const fn=document.getElementById('bn'),fe=document.getElementById('be2'),fp=document.getElementById('bp');
   fp.addEventListener('input',()=>{fp.value=maskPhone(fp.value)});
@@ -1146,8 +1148,9 @@ function openForm(){
     if(!EMAIL_RE.test(email)){be.textContent='Informe um e-mail válido. É por ele que você receberá a resposta.';return}
     if(fone.length<10||fone.length>11||fone.charAt(0)==='0'){be.textContent='Informe o WhatsApp com DDD, por exemplo (48) 99999-9999.';return}
     if(!cpfOk(fc.value)){be.textContent='Informe um CPF válido. Ele é usado para emitir a cobrança do pagamento.';return}
+    if(!document.getElementById('ba').checked){be.textContent='Para enviar o pedido, marque a caixa de concordância com a Política de Privacidade e as Regras de reserva.';return}
     const btn=document.getElementById('bs');btn.disabled=true;btn.textContent='Enviando…';
-    const body={p_cabin:current,p_start:iso(selA),p_end:iso(selB),p_guests:+document.getElementById('bg').value,p_name:nome,p_email:email,p_phone:fone,p_cpf:fc.value.replace(/\D/g,''),p_message:document.getElementById('bm').value.trim()||null};
+    const body={p_cabin:current,p_start:iso(selA),p_end:iso(selB),p_guests:+document.getElementById('bg').value,p_name:nome,p_email:email,p_phone:fone,p_cpf:fc.value.replace(/\D/g,''),p_message:document.getElementById('bm').value.trim()||null,p_aceite:TERMOS_VERSAO};
     try{
       const r=await fetch(SB_URL+'/rest/v1/rpc/request_booking',{method:'POST',headers:{apikey:SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)});
       if(!r.ok){let m='Não foi possível enviar agora. Tente novamente.',dis=false;
