@@ -323,12 +323,11 @@ function renderRes(){
     const bar=el('div','bar');
     const ok=el('button','btn','Aprovar e cobrar');ok.disabled=cf.length>0||!r.guest_cpf;
     ok.onclick=async()=>{
-      let valor=r.total_price;
-      if(valor==null){
-        const t=prompt('Qual o valor total desta reserva, em reais? (ex.: 1500 ou 1500,50)');
-        if(t==null)return;valor=parseFloat(String(t).replace(/\./g,'').replace(',','.'));
-        if(!(valor>0)){toast('Valor inválido.');return}
-      }
+      const sug=r.total_price!=null?String(r.total_price).replace('.',','):'';
+      const t=prompt('Valor total desta reserva, em reais. Pode alterar (ex.: 1500 ou 1500,50):',sug);
+      if(t==null)return;
+      const valor=parseFloat(String(t).replace(/\./g,'').replace(',','.'));
+      if(!(valor>0)){toast('Valor inválido.');return}
       if(!confirm('Aprovar o pedido de '+r.guest_name+' ('+br(r.start_date)+' → '+br(r.end_date)+') por '+money(valor)+'?\n\nAs datas ficam seguradas por 24 horas e o hóspede recebe o link para pagar.'))return;
       ok.disabled=true;ok.textContent='Aprovando…';
       const {data,error}=await sb.functions.invoke('aprovar-reserva',{body:{id:r.id,valor}});
