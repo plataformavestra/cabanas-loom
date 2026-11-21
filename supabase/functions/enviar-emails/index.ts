@@ -1,9 +1,10 @@
 // @ts-nocheck
-// Envia os e-mails automáticos das reservas (via Resend). Roda a cada 5 minutos, chamada pelo agendador do banco.
+// Envia os e-mails automáticos das reservas (via Resend) e os avisos para você no Discord. Roda a cada minuto, chamada pelo agendador do banco.
 //  1) Reserva confirmada (depois do pagamento): e-mail ao hóspede + aviso para você.
 //  2) Orientações de check-in: alguns dias antes da chegada (você escolhe quantos, por cabana, no painel).
+//  3) Avisos no Discord: pedido novo, pagamento confirmado, reserva cancelada e pagamento com datas ocupadas.
 // Em Edge Functions: desligar "Verify JWT" (a segurança é a senha interna "x-cron-token").
-// Segredo necessário: RESEND_API_KEY.
+// Segredos: RESEND_API_KEY (e-mails) e DISCORD_WEBHOOK_URL (avisos no Discord; se faltar, só os avisos ficam desligados).
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 const json = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { 'Content-Type': 'application/json' } });
@@ -72,6 +73,17 @@ async function enviar(para, assunto, texto, chave) {
   }
 }
 
+async function discord(texto) {
+  const url = Deno.env.get('DISCORD_WEBHOOK_URL');
+  if (!url) throw new Error('DISCORD_WEBHOOK_URL ausente');
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'User-Agent': 'CabanasLoom' },
+    body: JSON.stringify({ content: String(texto).slice(0, 1900), allowed_mentions: { parse: [] } }),
+  });
+  if (!r.ok) throw new Error('Discord HTTP ' + r.status);
+}
+
 function igual(a, b) {
   if (!a || !b || a.length !== b.length) return false;
   let x = 0; for (let i = 0; i < a.length; i++) x |= a.charCodeAt(i) ^ b.charCodeAt(i);
@@ -87,7 +99,7 @@ Deno.serve(async (req) => {
   if (!igual(req.headers.get('x-cron-token') || '', cfg.cron_token || '')) return json({ error: 'não autorizado' }, 401);
   if (!Deno.env.get('RESEND_API_KEY')) return json({ error: 'RESEND_API_KEY ausente' }, 500);
 
-  const resumo = { confirmacao: 0, aviso: 0, checkin: 0, pulados: [], erros: [] };
+  const resumo = { confirmacao: 0, aviso: 0, checkin: 0, discord: 0, pulados: [], erros: [] };
   const { data: cabs } = await admin.from('cabins').select('id,name,checkin_time,checkout_time');
   const cab = (id) => (cabs || []).find((c) => c.id === id);
   const { data: tpls } = await admin.from('message_templates').select('*');
@@ -170,6 +182,29 @@ Deno.serve(async (req) => {
     }
   }
 
-  if (resumo.erros.length || resumo.pulados.length || resumo.confirmacao || resumo.aviso || resumo.checkin) console.log('[enviar-emails] ' + JSON.stringify(resumo));
+  // ---------- 3) Avisos no Discord (só nome, cabana, datas e valor; sem CPF, telefone ou e-mail) ----------
+  if (Deno.env.get('DISCORD_WEBHOOK_URL')) {
+    const PAINEL = 'https://cabanasloom.com.br/painel/';
+    const resumoRes = (r) => {
+      const v = variaveis(r, cab(r.cabin_id), cfg.whatsapp_host);
+      return v.cabana + ' · ' + v.entrada + ' a ' + v.saida + ' (' + v.noites + (v.noites === '1' ? ' noite' : ' noites') + ')\n'
+        + v.nome_completo + ' · ' + v.hospedes + (v.hospedes === '1' ? ' hóspede' : ' hóspedes') + (v.valor ? ' · ' + v.valor : '');
+    };
+    const avisar = async (status, col, rotulo, montar) => {
+      const { data } = await admin.from('booking_requests').select('*').eq('status', status).is(col, null).limit(20);
+      for (const r of data || []) {
+        const { data: claim } = await admin.from('booking_requests').update({ [col]: new Date().toISOString() }).eq('id', r.id).is(col, null).select('id');
+        if (!claim || !claim.length) continue;
+        try { await discord(montar(r)); resumo.discord++; }
+        catch (e) { await admin.from('booking_requests').update({ [col]: null }).eq('id', r.id); resumo.erros.push('discord ' + rotulo + ' ' + r.id + ': ' + String(e.message || e)); }
+      }
+    };
+    await avisar('pendente', 'discord_novo_at', 'novo', (r) => '**Novo pedido de reserva**\n' + resumoRes(r) + '\nAnalisar: ' + PAINEL);
+    await avisar('confirmada', 'discord_pago_at', 'pago', (r) => '**Pagamento confirmado**\n' + resumoRes(r));
+    await avisar('cancelada', 'discord_cancel_at', 'cancelada', (r) => '**Reserva cancelada**\n' + resumoRes(r));
+    await avisar('pago_conflito', 'discord_conflito_at', 'conflito', (r) => '**ATENÇÃO: pagamento recebido, mas as datas já estavam ocupadas**\n' + resumoRes(r) + '\nDevolva o valor no Asaas e avise o hóspede. ' + PAINEL);
+  }
+
+  if (resumo.erros.length || resumo.pulados.length || resumo.confirmacao || resumo.aviso || resumo.checkin || resumo.discord) console.log('[enviar-emails] ' + JSON.stringify(resumo));
   return json({ ok: true, ...resumo }, 200);
 });
