@@ -1154,9 +1154,20 @@ function openForm(){
         try{const j=await r.json();if(j&&j.code==='P0001'&&j.message){m=j.message;dis=/dispon/.test(m)}}catch(_){}
         be.textContent=m;btn.disabled=false;btn.textContent='Enviar pedido';if(dis)loadLive();return}
       const a=selA,b=selB;selA=selB=null;renderCal();renderSum();
-      bk.textContent='';const p=document.createElement('p');p.className='ok';
-      p.textContent='Pedido enviado! De '+fmt(a)+' a '+fmt(b)+'. O anfitrião vai analisar e responder por e-mail ('+email+'). Se aprovado, você recebe o link de pagamento e as datas ficam reservadas por 24 horas.';
-      bk.appendChild(p);loadLive();
+      bk.textContent='';const box=document.createElement('div');box.className='ok';
+      const mk=(tag,txt,st)=>{const e=document.createElement(tag);e.textContent=txt;if(st)e.style.cssText=st;return e};
+      const noites=Math.round((b-a)/86400000);
+      box.appendChild(mk('p','Pedido recebido! Ainda não foi cobrado nada.','font-weight:700;margin:0 0 6px'));
+      box.appendChild(mk('p',DATA[current].nome+' · '+fmt(a)+' a '+fmt(b)+' ('+noites+(noites>1?' noites':' noite')+')','margin:0 0 8px'));
+      box.appendChild(mk('p','Fique tranquilo: seu pedido está registrado e estamos avaliando essas datas para você.','margin:0 0 8px'));
+      box.appendChild(mk('p','Como funciona daqui para frente:','font-weight:700;margin:0 0 4px'));
+      const ol=document.createElement('ol');ol.style.cssText='margin:0;padding-left:20px';
+      ['Vamos analisar o seu pedido e responder o quanto antes.',
+       'Se for aprovado, o link para pagar chega por e-mail em '+email+' (Pix, cartão ou boleto). Olhe também a caixa de spam. Também podemos te chamar no WhatsApp. O pagamento não é feito aqui no site.',
+       'Você tem 24 horas para pagar depois da aprovação. Pago, sua reserva está confirmada.'
+      ].forEach(t=>{const li=document.createElement('li');li.textContent=t;li.style.margin='0 0 4px';ol.appendChild(li)});
+      box.appendChild(ol);bk.appendChild(box);try{box.scrollIntoView({behavior:'smooth',block:'center'})}catch(_){}
+    loadLive();
     }catch(_){be.textContent='Sem conexão. Tente novamente.';btn.disabled=false;btn.textContent='Enviar pedido'}
   };
 }

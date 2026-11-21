@@ -283,10 +283,24 @@ function renderRes(){
   const alerta=requests.filter(r=>r.status==='pago_conflito');
   $('navRes').textContent=(abertos.length||alerta.length)?'Reservas ('+(abertos.length+alerta.length)+')':'Reservas';
   if(!abertos.length)pend.appendChild(el('p','hint','Nenhum pedido aguardando resposta.'));
-  abertos.slice().reverse().forEach(r=>{
+  const porChegada=(a,b)=>new Date(a.created_at)-new Date(b.created_at);
+  const sobrepoe=(a,b)=>a.cabin_id===b.cabin_id&&a.start_date<b.end_date&&a.end_date>b.start_date;
+  abertos.slice().sort(porChegada).forEach(r=>{
     const box=el('div','card');box.style.background='#fff';
     const n=Math.round((fromIso(r.end_date)-fromIso(r.start_date))/86400000);
     box.appendChild(el('h3',null,cabName(r.cabin_id)+' · '+br(r.start_date)+' → '+br(r.end_date)+' ('+n+(n>1?' noites':' noite')+')'));
+    const fila=abertos.filter(x=>x.id===r.id||sobrepoe(x,r)).sort(porChegada);
+    if(fila.length>1){
+      const pos=fila.findIndex(x=>x.id===r.id)+1;
+      const aviso=el('div',null);aviso.style.cssText='background:#fff4dc;border:1px solid #e8c77a;border-radius:8px;padding:8px 10px;margin:0 0 8px;font-size:13px;line-height:1.45';
+      const t=el('p',null,pos+'º da fila · datas disputadas por '+fila.length+' pedidos');t.style.cssText='font-weight:700;margin:0 0 4px';aviso.appendChild(t);
+      fila.forEach((x,i)=>{
+        const li=el('p',null,(i+1)+'º  '+x.guest_name+' · '+br(x.start_date)+' → '+br(x.end_date)+' · pediu em '+dtbr(x.created_at)+(x.id===r.id?'  (este)':''));
+        li.style.cssText='margin:0;'+(x.id===r.id?'font-weight:700':'');aviso.appendChild(li);
+      });
+      aviso.appendChild(el('p',null,pos===1?'Este chegou primeiro. Ao aprovar, os outros desta disputa ficam com conflito e você recusa.':'Chegou depois. Normalmente se aprova o 1º da fila primeiro; você escolhe.')).style.cssText='margin:4px 0 0';
+      box.appendChild(aviso);
+    }
     box.appendChild(el('p',null,r.guest_name+' · '+r.guests+(r.guests>1?' hóspedes':' hóspede')));
     box.appendChild(el('p',null,'Valor: '+(r.total_price!=null?money(r.total_price):'a combinar (você informa ao aprovar)')));
     box.appendChild(el('p',null,'E-mail: '+(r.guest_email||r.guest_contact)));
