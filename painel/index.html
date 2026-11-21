@@ -16,6 +16,7 @@ input,select{font:inherit;padding:9px 10px;border:1px solid var(--line);border-r
 label{display:block;font-size:13px;color:var(--mut);margin:0 0 4px}
 .btn{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:9px 16px}
 .btn:hover{background:var(--acc2)}
+a.btn{text-decoration:none;display:inline-block}
 .btn.ghost{background:transparent;color:var(--acc);border:1px solid var(--line)}
 .btn.ghost:hover{background:#f0e8da}
 .btn.danger{background:transparent;color:var(--bad);border:1px solid var(--line)}
@@ -170,8 +171,12 @@ th{font-weight:500;color:var(--mut);font-size:12px}
     <div id="tab-res" class="hide">
       <div class="card">
         <h2>Pedidos de reserva do site</h2>
-        <div class="hint" style="margin:0 0 12px">Ao aprovar, as datas fecham no painel e seguem para o Airbnb e o Booking pelos links de sincronização. Responda o hóspede pelo contato informado.</div>
+        <div class="hint" style="margin:0 0 12px">Ao aprovar, as datas ficam seguradas por 24 horas (e seguem para o Airbnb e o Booking pelos links de sincronização) e o hóspede recebe o link de pagamento. Quando ele paga, a reserva é confirmada sozinha. Se não pagar no prazo, as datas voltam a ficar livres.</div>
         <div id="resPend"></div>
+      </div>
+      <div class="card" id="cardAguard">
+        <h2>Aguardando pagamento</h2>
+        <div id="resAguard"></div>
       </div>
       <div class="card">
         <h2>Respondidos</h2>
@@ -261,22 +266,35 @@ function cabName(id){const c=cabins.find(x=>x.id===id);return c?c.name:id}
 function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
 function conflictOf(r){return blocks.filter(b=>b.cabin_id===r.cabin_id&&b.start_date<r.end_date&&b.end_date>r.start_date)}
 const SRC_NOME={manual:'bloqueio seu',airbnb:'Airbnb',booking:'Booking',site:'site'};
+const money=v=>Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const dtbr=v=>new Date(v).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+const SIT={aprovada:'Aprovada',recusada:'Recusada',confirmada:'Paga e confirmada',expirada:'Expirou sem pagar',cancelada:'Cancelada',pago_conflito:'PAGO, mas as datas estavam ocupadas: devolva o valor no Asaas',aguardando_pagamento:'Aguardando pagamento',pendente:'Pendente'};
+async function fnMsg(error,data,def){
+  if(data&&data.error)return data.error;
+  try{if(error&&error.context&&error.context.json){const j=await error.context.json();if(j&&j.error)return j.error}}catch(_){}
+  return def;
+}
+function maskCpfShow(c){const d=String(c||'').replace(/\D/g,'');return d.length===11?'***.'+d.slice(3,6)+'.***-'+d.slice(9):'—'}
 function renderRes(){
-  const pend=$('resPend'),done=$('resDone');pend.textContent='';done.textContent='';
+  const pend=$('resPend'),aguard=$('resAguard'),done=$('resDone');pend.textContent='';aguard.textContent='';done.textContent='';
   if(requests===null){pend.appendChild(el('p','hint','A seção de reservas ainda não foi ativada no banco de dados.'));$('navRes').textContent='Reservas';return}
   const abertos=requests.filter(r=>r.status==='pendente');
-  $('navRes').textContent=abertos.length?'Reservas ('+abertos.length+')':'Reservas';
+  const espera=requests.filter(r=>r.status==='aguardando_pagamento');
+  const alerta=requests.filter(r=>r.status==='pago_conflito');
+  $('navRes').textContent=(abertos.length||alerta.length)?'Reservas ('+(abertos.length+alerta.length)+')':'Reservas';
   if(!abertos.length)pend.appendChild(el('p','hint','Nenhum pedido aguardando resposta.'));
   abertos.slice().reverse().forEach(r=>{
     const box=el('div','card');box.style.background='#fff';
     const n=Math.round((fromIso(r.end_date)-fromIso(r.start_date))/86400000);
     box.appendChild(el('h3',null,cabName(r.cabin_id)+' · '+br(r.start_date)+' → '+br(r.end_date)+' ('+n+(n>1?' noites':' noite')+')'));
     box.appendChild(el('p',null,r.guest_name+' · '+r.guests+(r.guests>1?' hóspedes':' hóspede')));
+    box.appendChild(el('p',null,'Valor: '+(r.total_price!=null?money(r.total_price):'a combinar (você informa ao aprovar)')));
     box.appendChild(el('p',null,'E-mail: '+(r.guest_email||r.guest_contact)));
     if(r.guest_phone){
       const pw=el('p',null,'WhatsApp: '+fmtPhone(r.guest_phone)+' ');
       const wa=el('a',null,'abrir conversa');wa.href='https://wa.me/55'+r.guest_phone;wa.target='_blank';wa.rel='noopener';pw.appendChild(wa);box.appendChild(pw);
     }
+    box.appendChild(el('p',null,'CPF: '+maskCpfShow(r.guest_cpf)));
     if(r.message)box.appendChild(el('p','hint','“'+r.message+'”'));
     box.appendChild(el('p','hint','Pedido em '+new Date(r.created_at).toLocaleString('pt-BR')));
     const cf=conflictOf(r);
@@ -284,13 +302,24 @@ function renderRes(){
       const w=el('p','hint','Atenção: conflito. Essas datas já estão ocupadas ('+cf.map(b=>SRC_NOME[b.source]||b.source).join(', ')+'). Não aprove; recuse e avise o hóspede.');
       w.style.color='var(--bad)';w.style.fontWeight='600';box.appendChild(w);
     }
+    if(!r.guest_cpf){
+      const w=el('p','hint','Este pedido não tem CPF (feito antes da cobrança online). Recuse e peça um novo pedido.');
+      w.style.color='var(--bad)';w.style.fontWeight='600';box.appendChild(w);
+    }
     const bar=el('div','bar');
-    const ok=el('button','btn','Aprovar');ok.disabled=cf.length>0;
+    const ok=el('button','btn','Aprovar e cobrar');ok.disabled=cf.length>0||!r.guest_cpf;
     ok.onclick=async()=>{
-      if(!confirm('Aprovar o pedido de '+r.guest_name+' ('+br(r.start_date)+' → '+br(r.end_date)+')? As datas serão fechadas.'))return;
-      ok.disabled=true;const {error}=await sb.rpc('approve_booking',{p_id:r.id});
-      if(error){toast(error.message||'Não foi possível aprovar.');ok.disabled=false;return}
-      toast('Reserva aprovada. Datas fechadas.');loadAll();
+      let valor=r.total_price;
+      if(valor==null){
+        const t=prompt('Qual o valor total desta reserva, em reais? (ex.: 1500 ou 1500,50)');
+        if(t==null)return;valor=parseFloat(String(t).replace(/\./g,'').replace(',','.'));
+        if(!(valor>0)){toast('Valor inválido.');return}
+      }
+      if(!confirm('Aprovar o pedido de '+r.guest_name+' ('+br(r.start_date)+' → '+br(r.end_date)+') por '+money(valor)+'?\n\nAs datas ficam seguradas por 24 horas e o hóspede recebe o link para pagar.'))return;
+      ok.disabled=true;ok.textContent='Aprovando…';
+      const {data,error}=await sb.functions.invoke('aprovar-reserva',{body:{id:r.id,valor}});
+      if(error||!data||data.error){toast(await fnMsg(error,data,'Não foi possível aprovar.'));ok.disabled=false;ok.textContent='Aprovar e cobrar';return}
+      toast('Aprovado. Link de pagamento criado.');loadAll();
     };
     const no=el('button','btn danger','Recusar');
     no.onclick=async()=>{
@@ -301,10 +330,53 @@ function renderRes(){
     };
     bar.append(ok,no);box.appendChild(bar);pend.appendChild(box);
   });
-  const resp=requests.filter(r=>r.status!=='pendente').slice(0,30);
+
+  $('cardAguard').classList.toggle('hide',!espera.length);
+  espera.forEach(r=>{
+    const box=el('div','card');box.style.background='#fff';
+    box.appendChild(el('h3',null,cabName(r.cabin_id)+' · '+br(r.start_date)+' → '+br(r.end_date)));
+    box.appendChild(el('p',null,r.guest_name+' · '+money(r.total_price)));
+    box.appendChild(el('p',null,'Pagar até '+dtbr(r.expires_at)+'. Depois disso as datas voltam a ficar livres.'));
+    const bar=el('div','bar');
+    if(r.payment_url){
+      const cp=el('button','btn','Copiar link de pagamento');
+      cp.onclick=async()=>{try{await navigator.clipboard.writeText(r.payment_url);toast('Link copiado.')}catch(_){prompt('Copie o link:',r.payment_url)}};
+      bar.appendChild(cp);
+      if(r.guest_phone){
+        const msg='Olá, '+r.guest_name.split(' ')[0]+'! Seu pedido na Cabanas Loom foi aprovado: '+cabName(r.cabin_id)+', de '+br(r.start_date)+' a '+br(r.end_date)+', total '+money(r.total_price)+'. Para confirmar, pague até '+dtbr(r.expires_at)+' neste link (Pix, cartão ou boleto): '+r.payment_url;
+        const wa=el('a','btn','Avisar no WhatsApp');wa.href='https://wa.me/55'+r.guest_phone+'?text='+encodeURIComponent(msg);wa.target='_blank';wa.rel='noopener';bar.appendChild(wa);
+      }
+    }else bar.appendChild(el('span','hint','Gerando link de pagamento…'));
+    const cn=el('button','btn danger','Cancelar');
+    cn.onclick=async()=>{
+      if(!confirm('Cancelar a reserva de '+r.guest_name+'? As datas voltam a ficar livres.'))return;
+      cn.disabled=true;const {error}=await sb.rpc('cancel_booking',{p_id:r.id});
+      if(error){toast(error.message||'Não foi possível cancelar.');cn.disabled=false;return}
+      toast('Reserva cancelada.');loadAll();
+    };
+    bar.appendChild(cn);box.appendChild(bar);aguard.appendChild(box);
+  });
+
+  const resp=requests.filter(r=>r.status!=='pendente'&&r.status!=='aguardando_pagamento').slice(0,30);
   if(!resp.length){done.appendChild(el('p','hint','Nada por aqui ainda.'));return}
-  const tb=el('table');const hd=el('tr');['Cabana','Entrada','Saída','Hóspede','Situação'].forEach(t=>hd.appendChild(el('th',null,t)));tb.appendChild(hd);
-  resp.forEach(r=>{const tr=el('tr');[cabName(r.cabin_id),br(r.start_date),br(r.end_date),r.guest_name,r.status==='aprovada'?'Aprovada':'Recusada'].forEach(t=>tr.appendChild(el('td',null,t)));tb.appendChild(tr)});
+  const tb=el('table');const hd=el('tr');['Cabana','Entrada','Saída','Hóspede','Valor','Situação',''].forEach(t=>hd.appendChild(el('th',null,t)));tb.appendChild(hd);
+  resp.forEach(r=>{
+    const tr=el('tr');
+    [cabName(r.cabin_id),br(r.start_date),br(r.end_date),r.guest_name,r.total_price!=null?money(r.total_price):'—',SIT[r.status]||r.status].forEach(t=>tr.appendChild(el('td',null,t)));
+    if(r.status==='pago_conflito')tr.style.color='var(--bad)';
+    const act=el('td');
+    if(r.status==='confirmada'){
+      const cn=el('button','btn danger','Cancelar');
+      cn.onclick=async()=>{
+        if(!confirm('Cancelar a reserva paga de '+r.guest_name+'?\n\nAs datas voltam a ficar livres. O valor pago NÃO é devolvido automaticamente: faça o estorno no painel do Asaas.'))return;
+        cn.disabled=true;const {error}=await sb.rpc('cancel_booking',{p_id:r.id});
+        if(error){toast(error.message||'Não foi possível cancelar.');cn.disabled=false;return}
+        toast('Reserva cancelada. Lembre de estornar no Asaas.');loadAll();
+      };
+      act.appendChild(cn);
+    }
+    tr.appendChild(act);tb.appendChild(tr);
+  });
   done.appendChild(tb);
 }
 
