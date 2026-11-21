@@ -61,6 +61,18 @@ header{position:fixed;left:0;right:0;top:0;display:flex;align-items:center;justi
 #lb button{position:absolute;border:0;background:rgba(255,255,255,.14);color:#fff;width:48px;height:48px;border-radius:50%;font-size:24px;cursor:pointer}
 #lb button:hover{background:rgba(255,255,255,.28)}
 #lbp{left:18px;top:50%;transform:translateY(-50%)}#lbn{right:18px;top:50%;transform:translateY(-50%)}#lbx{right:18px;top:18px}
+#mp{position:fixed;inset:0;z-index:41;background:rgba(10,14,12,.6);display:none;align-items:center;justify-content:center;padding:16px}
+#mp.on{display:flex}
+#mpc{background:var(--paper);border-radius:16px;width:min(560px,100%);max-height:calc(100vh - 32px);overflow:auto;padding:16px 16px 18px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+#mpc h3{margin:0 0 2px;font-size:20px}
+#mpc .loc{font-size:13px;color:var(--ink2);margin:0 0 10px}
+#mpm{width:100%;height:min(46vh,340px);border:1px solid var(--line);border-radius:12px;background:#e8e4da;display:block}
+.mpa{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.mpa button,.mpa a{border:1px solid var(--line);background:#fff;color:var(--ink);font:600 13px Inter,sans-serif;padding:10px;border-radius:10px;cursor:pointer;min-height:44px;text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center}
+.mpa .pri{background:var(--moss);color:#fff;border-color:var(--moss);grid-column:1 / -1}
+#mpx{float:right;border:0;background:rgba(29,40,34,.08);width:36px;height:36px;border-radius:50%;font-size:22px;cursor:pointer;color:var(--ink)}
+.mapbtn{width:100%;border:1px solid var(--line);background:rgba(255,255,255,.75);color:var(--ink);font:600 13px Inter,sans-serif;padding:10px;border-radius:10px;cursor:pointer;min-height:44px;margin:0 0 14px}
+.mapbtn:hover{border-color:var(--wood)}
 #lbc{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);color:#fff;font:500 13px Inter,sans-serif;opacity:.8}
 .facts{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:0 0 14px}
 .fact{background:rgba(255,255,255,.7);border:1px solid var(--line);border-radius:10px;padding:7px 10px}
@@ -148,6 +160,7 @@ html,body{width:100%;max-width:100vw;overscroll-behavior:none}
 <aside id="panel" aria-live="polite"></aside>
 <div id="toast"></div>
 <div id="lb" role="dialog" aria-label="Fotos"><div id="lbt"></div><button id="lbp" type="button" aria-label="Foto anterior">‹</button><button id="lbn" type="button" aria-label="Próxima foto">›</button><button id="lbx" type="button" aria-label="Fechar fotos">×</button><div id="lbc"></div></div>
+<div id="mp" role="dialog" aria-modal="true" aria-label="Como chegar"><div id="mpc"><button id="mpx" type="button" aria-label="Fechar mapa">×</button><h3>Como chegar</h3><p class="loc" id="mpl"></p><iframe id="mpm" title="Mapa da localização" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe><div class="mpa"><button type="button" id="mpcp" class="pri">Copiar localização</button><a id="mpg" target="_blank" rel="noopener">Abrir no Google Maps</a><a id="mpw" target="_blank" rel="noopener">Abrir no Waze</a></div></div></div>
 <button id="dn" type="button" aria-label="Alternar dia e noite"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg><span>Noite</span></button>
 
 <script src="./three.min.js"></script>
@@ -1185,6 +1198,7 @@ function openCabin(id,instant){
    '<div class="pact"><button type="button" id="pb">← Terreno</button><button type="button" id="pi" class="pri">Ver por dentro</button></div>'+
    '<div class="gal">'+d.fotos.map((f,i)=>'<button type="button" data-i="'+i+'" aria-label="Abrir foto '+(i+1)+'"><img src="'+f+'_t.jpg" alt="" loading="'+(i<3?'eager':'lazy')+'" draggable="false">'+(i===2?'<span class="more">+'+(d.fotos.length-3)+' fotos</span>':'')+'</button>').join('')+'</div>'+
    '<div class="facts" id="facts"></div>'+
+   '<button type="button" class="mapbtn" id="mapbtn">Como chegar · ver no mapa</button>'+
    '<h3>Disponibilidade</h3><div id="cal"></div><div class="sum" id="sum"></div>'+
    '<div id="bk"></div>';
   document.body.classList.add('pop');panel.classList.add('on');backBtn.classList.add('on');hint.classList.add('hide');insideBtn.classList.add('on');setInterior(null);
@@ -1194,6 +1208,7 @@ function openCabin(id,instant){
   document.getElementById('pb').onclick=goBack;
   const pi=document.getElementById('pi');pi.onclick=()=>{insideBtn.click();pi.textContent=interiorOn?'Ver por fora':'Ver por dentro'};
   if(mob)requestAnimationFrame(()=>{const g=panel.querySelector('.gal');panel.style.setProperty('--minh',(g.offsetTop+g.offsetHeight+12)+'px')});
+  document.getElementById('mapbtn').onclick=()=>openMapa(id);
   renderFacts();renderCal();renderSum();bkReset();
   yawOff.t=pitchOff.t=0;zoom.t=1;
   const fp=focusPreset(cabins[id]);
@@ -1201,6 +1216,28 @@ function openCabin(id,instant){
   shiftT=1;
   try{history.replaceState(null,'','#'+id)}catch(e){}
 }
+/* ---------- mapa "Como chegar" ---------- */
+const LOCAL={lat:-27.950522,lng:-49.671842,nome:'Cabanas Loom · Urubici, SC'};
+const mp=document.getElementById('mp'),mpm=document.getElementById('mpm'),mpcp=document.getElementById('mpcp');let mpBack=null;
+function mapaLink(){return 'https://www.google.com/maps?q='+LOCAL.lat+','+LOCAL.lng}
+function openMapa(id){
+  const d=DATA[id]||{};document.getElementById('mpl').textContent=(d.nome?d.nome+' · ':'')+LOCAL.nome;
+  mpm.src='https://www.google.com/maps?q='+LOCAL.lat+','+LOCAL.lng+'&z=15&output=embed&hl=pt-BR';
+  document.getElementById('mpg').href=mapaLink();
+  document.getElementById('mpw').href='https://waze.com/ul?ll='+LOCAL.lat+','+LOCAL.lng+'&navigate=yes';
+  mpcp.textContent='Copiar localização';mpBack=document.activeElement;mp.classList.add('on');document.getElementById('mpx').focus();
+}
+function closeMapa(){mp.classList.remove('on');mpm.removeAttribute('src');try{mpBack&&mpBack.focus()}catch(_){}}
+document.getElementById('mpx').onclick=closeMapa;
+mp.addEventListener('click',e=>{if(e.target===mp)closeMapa()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&mp.classList.contains('on'))closeMapa()});
+mpcp.onclick=async()=>{
+  const txt=mapaLink();let ok=false;
+  try{await navigator.clipboard.writeText(txt);ok=true}catch(_){
+    try{const t=document.createElement('textarea');t.value=txt;t.style.cssText='position:fixed;opacity:0';document.body.appendChild(t);t.select();ok=document.execCommand('copy');t.remove()}catch(_){}}
+  mpcp.textContent=ok?'Link copiado!':'Não foi possível copiar. Use "Abrir no Google Maps".';
+  if(ok)setTimeout(()=>{mpcp.textContent='Copiar localização'},2500);
+};
 let lbList=[],lbI=0;const lb=document.getElementById('lb'),lbt=document.getElementById('lbt'),lbc=document.getElementById('lbc');
 function lbLoad(i){[i-1,i,i+1,i+2].forEach(k=>{const im=lbt.children[k]&&lbt.children[k].firstChild;if(im&&!im.src)im.src=im.dataset.src})}
 function lbGo(i,smooth){lbI=(i+lbList.length)%lbList.length;lbLoad(lbI);lbt.scrollTo({left:lbI*lbt.clientWidth,behavior:smooth?'smooth':'auto'});lbc.textContent=(lbI+1)+' / '+lbList.length}
