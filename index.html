@@ -1057,14 +1057,15 @@ async function sbGet(path){const r=await fetch(SB_URL+'/rest/v1/'+path,{headers:
 async function loadLive(){
   try{
     const hj=iso(HOJE);
-    const [b,c,r]=await Promise.all([
+    const [b,c,r,hn]=await Promise.all([
       sbGet('public_blocks?select=cabin_id,start_date,end_date&end_date=gte.'+hj+'&limit=2000'),
       sbGet('public_cabins?select=*'),
-      sbGet('public_price_rules?select=*&end_date=gte.'+hj)]);
-    const L={blocks:{},cabins:{},rules:{}};
+      sbGet('public_price_rules?select=*&end_date=gte.'+hj),
+      sbGet('public_holiday_nights?select=night&night=gte.'+hj).catch(()=>[])]);
+    const L={blocks:{},cabins:{},rules:{},fer:new Set(hn.map(x=>x.night))};
     b.forEach(x=>(L.blocks[x.cabin_id]=L.blocks[x.cabin_id]||[]).push({s:fromIso(x.start_date),e:fromIso(x.end_date)}));
     c.forEach(x=>{L.cabins[x.id]=x});
-    r.forEach(x=>(L.rules[x.cabin_id]=L.rules[x.cabin_id]||[]).push({s:fromIso(x.start_date),e:fromIso(x.end_date),price:Number(x.price),min:x.min_nights}));
+    r.forEach(x=>(L.rules[x.cabin_id]=L.rules[x.cabin_id]||[]).push({s:fromIso(x.start_date),e:fromIso(x.end_date),price:Number(x.price),w:x.weekend_price!=null?Number(x.weekend_price):null,min:x.min_nights,len:fromIso(x.end_date)-fromIso(x.start_date),c:x.created_at||''}));
     LIVE=L;
   }catch(e){LIVE=false}
   if(typeof current!=='undefined'&&current&&current!=='placa'&&DATA[current])refreshCabin();
@@ -1074,12 +1075,13 @@ let calMonth=new Date(HOJE.getFullYear(),HOJE.getMonth(),1),selA=null,selB=null;
 function occ(id,d){return ((LIVE&&LIVE.blocks[id])||[]).some(r=>d>=r.s&&d<r.e)}
 function canOut(id,a,b){for(let t=new Date(a);t<b;t.setDate(t.getDate()+1)){if(occ(id,t))return false}return true}
 function minNights(id,a){const cab=(LIVE&&LIVE.cabins[id])||{};let r=null;((LIVE&&LIVE.rules[id])||[]).forEach(x=>{if(a>=x.s&&a<=x.e&&x.min!=null&&(!r||x.s>r.s))r=x});return r?r.min:(cab.min_nights||1)}
-function nightPrice(id,d){const cab=(LIVE&&LIVE.cabins[id])||{};let r=null;((LIVE&&LIVE.rules[id])||[]).forEach(x=>{if(d>=x.s&&d<=x.e&&(!r||x.s>r.s))r=x});if(r)return r.price;const w=d.getDay()===5||d.getDay()===6;return(w&&cab.weekend_price!=null)?Number(cab.weekend_price):(cab.base_price!=null?Number(cab.base_price):null)}
+// período mais curto que cobre a noite vence (empate: o cadastrado por último); sexta, sábado e feriado usam a diária de fim de semana
+function nightPrice(id,d){const cab=(LIVE&&LIVE.cabins[id])||{};let r=null;((LIVE&&LIVE.rules[id])||[]).forEach(x=>{if(d>=x.s&&d<=x.e&&(!r||x.len<r.len||(x.len===r.len&&x.c>r.c)))r=x});const w=d.getDay()===5||d.getDay()===6||!!(LIVE&&LIVE.fer&&LIVE.fer.has(iso(d)));if(r)return(w&&r.w!=null)?r.w:r.price;return(w&&cab.weekend_price!=null)?Number(cab.weekend_price):(cab.base_price!=null?Number(cab.base_price):null)}
 function totalPrice(id,a,b){let sum=0;for(let t=new Date(a);t<b;t.setDate(t.getDate()+1)){const p=nightPrice(id,t);if(p==null)return null;sum+=p}return sum}
 function renderFacts(){
   const f=document.getElementById('facts');if(!f)return;
   const cab=LIVE&&LIVE.cabins[current];let from=null;
-  if(cab){[cab.base_price,cab.weekend_price].forEach(v=>{if(v!=null&&(from==null||+v<from))from=+v});((LIVE.rules[current])||[]).forEach(r=>{if(from==null||r.price<from)from=r.price})}
+  if(cab){[cab.base_price,cab.weekend_price].forEach(v=>{if(v!=null&&(from==null||+v<from))from=+v});((LIVE.rules[current])||[]).forEach(r=>{[r.price,r.w].forEach(v=>{if(v!=null&&(from==null||v<from))from=v})})}
   const hh=v=>v?String(v).slice(0,5):'—',ph=LIVE===null?'…':'—';
   const items=[['Hóspedes',cab&&cab.capacity?'até '+cab.capacity:ph],['Diária a partir de',from!=null?brl(from):ph],['Check-in',cab?hh(cab.checkin_time):ph],['Check-out',cab?hh(cab.checkout_time):ph]];
   f.textContent='';

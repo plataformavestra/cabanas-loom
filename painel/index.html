@@ -49,6 +49,11 @@ main{padding:18px 22px 60px;max-width:1100px;margin:0 auto}
 .day .b{position:absolute;left:3px;right:3px;bottom:3px;height:5px;border-radius:3px}
 .day .b.manual{background:var(--manual)}.day .b.reserva{background:var(--reserva)}.day .b.airbnb{background:var(--airbnb)}.day .b.booking{background:var(--booking)}.day .b.site{background:var(--site)}
 .day.occ{background:#f9f4ea}
+.pv{min-width:0}.pv .grid{grid-template-columns:repeat(7,minmax(0,1fr))}
+.pv .day{cursor:default;flex-direction:column;justify-content:space-between;padding:3px 4px}
+.pv .day b{font-size:12px;font-weight:600;color:var(--ink);align-self:flex-end}
+.pv .day small{font-size:9px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.pv .day.alta{background:#f6ead6}.pv .day.rule{box-shadow:inset 0 0 0 2px #d9b98a}.pv .day.fer small{color:var(--bad)}
 .day .st{position:absolute;top:52%;height:6px;margin-top:-3px;background:#3a3028;pointer-events:none;z-index:1}
 .day .st.bl{background:#9a8b78}
 .day .st.ini{border-radius:4px 0 0 4px}.day .st.fim{border-radius:0 4px 4px 0}
@@ -196,10 +201,10 @@ th{font-weight:500;color:var(--mut);font-size:12px}
         <button class="btn" id="saveCabin">Salvar dados</button>
       </div>
       <div class="card">
-        <h2>Preços por período (temporada, feriados)</h2>
-        <div class="hint" style="margin:0 0 10px">O preço do período substitui a diária base nas datas informadas.</div>
+        <h2>Preços por período (temporada, datas especiais)</h2>
+        <div class="hint" style="margin:0 0 10px">O período substitui as diárias normais nas datas dele. Se dois períodos se sobrepõem, <b>vale o mais curto</b>: ex.: cadastre o Inverno inteiro e, por cima, só o Dia dos Namorados. Sexta, sábado e feriados usam a diária de fim de semana do período.</div>
         <div class="tw"><table>
-          <thead><tr><th>Nome</th><th>De</th><th>Até</th><th>Diária</th><th>Mín. noites</th><th></th></tr></thead>
+          <thead><tr><th>Nome</th><th>De</th><th>Até (última noite)</th><th>Dom a qui</th><th>Sex, sáb e feriado</th><th>Mín. noites</th><th></th></tr></thead>
           <tbody id="rules"></tbody>
         </table></div>
         <div class="hint" id="rulesEmpty"></div>
@@ -207,13 +212,35 @@ th{font-weight:500;color:var(--mut);font-size:12px}
         <div class="g3">
           <div class="row"><label>Nome</label><input id="rName" placeholder="Ex.: Réveillon"></div>
           <div class="row"><label>De (DD/MM/AAAA)</label><input id="rFrom" placeholder="20/12/2026" inputmode="numeric" maxlength="10"></div>
-          <div class="row"><label>Até (DD/MM/AAAA)</label><input id="rTo" placeholder="03/01/2027" inputmode="numeric" maxlength="10"></div>
+          <div class="row"><label>Até, última noite (DD/MM/AAAA)</label><input id="rTo" placeholder="03/01/2027" inputmode="numeric" maxlength="10"></div>
         </div>
-        <div class="g2">
-          <div class="row"><label>Diária (R$)</label><input id="rPrice" type="number" min="0" step="0.01"></div>
+        <div class="g3">
+          <div class="row"><label>Diária domingo a quinta (R$)</label><input id="rPrice" type="number" min="0" step="0.01"></div>
+          <div class="row"><label>Diária sexta, sábado e feriado (R$, opcional)</label><input id="rWeek" type="number" min="0" step="0.01" placeholder="Vazio = mesma diária"></div>
           <div class="row"><label>Mínimo de noites (opcional)</label><input id="rMin" type="number" min="1"></div>
         </div>
+        <label class="hint" style="display:flex;gap:8px;align-items:center;margin:0 0 12px;color:var(--ink)"><input type="checkbox" id="rAll" style="width:auto"> Criar este período para todas as cabanas</label>
         <button class="btn" id="addRule">Adicionar período</button>
+      </div>
+      <div class="card">
+        <h2>Prévia: preço de cada noite</h2>
+        <div class="hint" style="margin:0 0 10px">Confira o valor que o site vai cobrar em cada noite da cabana escolhida no topo, e de onde ele vem.</div>
+        <div class="bar"><button class="btn ghost" id="pvPrev" type="button">‹</button><button class="btn ghost" id="pvNext" type="button">›</button></div>
+        <div class="months" id="pvMonths"></div>
+      </div>
+      <div class="card">
+        <h2>Feriados</h2>
+        <div class="hint" style="margin:0 0 10px">Nas noites de feriado vale a diária de "sexta, sábado e feriado". Já vêm os feriados nacionais; acrescente os de Urubici e de Santa Catarina se quiser.</div>
+        <div class="row" style="max-width:420px"><label>O preço de feriado vale em qual noite?</label>
+          <select id="ferRegra"><option value="ambos">Na véspera e na noite do feriado</option><option value="vespera">Só na véspera (noite anterior ao feriado)</option><option value="dia">Só na noite do feriado</option></select></div>
+        <div class="tw"><table><thead><tr><th>Data</th><th>Dia</th><th>Feriado</th><th></th></tr></thead><tbody id="ferList"></tbody></table></div>
+        <div class="hint" id="ferEmpty"></div>
+        <h3 style="font-size:16px;margin:18px 0 8px">Novo feriado</h3>
+        <div class="g3">
+          <div class="row"><label>Data (DD/MM/AAAA)</label><input id="ferDia" placeholder="11/08/2027" inputmode="numeric" maxlength="10"></div>
+          <div class="row"><label>Nome</label><input id="ferNome" placeholder="Ex.: Aniversário de Urubici" maxlength="80"></div>
+          <div class="row" style="display:flex;align-items:flex-end"><button class="btn" id="ferAdd" type="button">Adicionar feriado</button></div>
+        </div>
       </div>
     </div>
 
@@ -317,7 +344,7 @@ const $=id=>document.getElementById(id);
 const MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 const ORIGEM={reserva:'Reserva (lançada por você)',manual:'Bloqueio seu',airbnb:'Airbnb',booking:'Booking',site:'Site'};
 let templates=null,settings={},msgDirty=false,lastField=null;
-let gasEv=null,glassEv=null;
+let gasEv=null,glassEv=null,holidays=null,pvView=null;
 let cabins=[],blocks=[],rules=[],sources=[],feeds=[],requests=null,view=new Date(),selA=null,selB=null;
 view=new Date(view.getFullYear(),view.getMonth(),1);
 
@@ -362,9 +389,10 @@ async function loadAll(){
   requests=rq.error?null:(rq.data||[]);
   const mt=await sb.from('message_templates').select('*');templates=mt.error?null:(mt.data||[]);
   const st=await sb.from('app_settings').select('*');settings={};(st.data||[]).forEach(x=>{settings[x.key]=x.value});
+  const hd=await sb.from('holidays').select('*').order('day');holidays=hd.error?null:(hd.data||[]);
   const ge=await sb.from('gas_events').select('*').order('event_date').order('created_at');gasEv=ge.error?null:(ge.data||[]);
   const gl=await sb.from('glass_events').select('*').order('event_date').order('created_at');glassEv=gl.error?null:(gl.data||[]);
-  fillCabinSelects();renderCal();renderBlocks();loadCabinForm();renderRules();renderSync();renderRes();renderMsg();renderEst();renderIni();
+  fillCabinSelects();renderCal();renderBlocks();loadCabinForm();renderRules();renderSync();renderRes();renderMsg();renderEst();renderIni();renderPreview();renderFer();
 }
 function fillCabinSelects(){
   const keep1=$('calCabin').value,keep2=$('prCabin').value;
@@ -1162,7 +1190,7 @@ function loadCabinForm(){
   $('fWeek').value=c.weekend_price??'';$('fMin').value=c.min_nights??1;
   $('fIn').value=(c.checkin_time||'15:00').slice(0,5);$('fOut').value=(c.checkout_time||'11:00').slice(0,5);
 }
-$('prCabin').onchange=()=>{loadCabinForm();renderRules()};
+$('prCabin').onchange=()=>{loadCabinForm();renderRules();renderPreview()};
 const numOrNull=v=>v===''?null:Number(v);
 $('saveCabin').onclick=async()=>{
   const c=curCabin();if(!c)return;
@@ -1175,12 +1203,14 @@ $('saveCabin').onclick=async()=>{
 };
 function renderRules(){
   const c=curCabin(),tb=$('rules');tb.innerHTML='';if(!c)return;
-  const list=rules.filter(r=>r.cabin_id===c.id);
+  const list=rules.filter(r=>r.cabin_id===c.id).sort((a,b)=>a.start_date<b.start_date?-1:a.start_date>b.start_date?1:(diasEntre(b.start_date,b.end_date)-diasEntre(a.start_date,a.end_date)));
   $('rulesEmpty').textContent=list.length?'':'Nenhum período cadastrado.';
   list.forEach(r=>{
     const tr=document.createElement('tr');
-    [r.name,br(r.start_date),br(r.end_date),'R$ '+Number(r.price).toLocaleString('pt-BR',{minimumFractionDigits:2}),r.min_nights??'—'].forEach(t=>{const td=document.createElement('td');td.textContent=t;tr.appendChild(td)});
-    const td=document.createElement('td');const x=document.createElement('button');x.className='btn danger';x.textContent='Remover';
+    [r.name,br(r.start_date),br(r.end_date),money(r.price),r.weekend_price!=null?money(r.weekend_price):'mesma',r.min_nights??'—'].forEach(t=>{const td=document.createElement('td');td.textContent=t;tr.appendChild(td)});
+    const td=document.createElement('td');td.style.whiteSpace='nowrap';
+    const ed=document.createElement('button');ed.className='btn ghost';ed.style.marginRight='6px';ed.textContent='Editar';ed.onclick=()=>editarPeriodo(r);td.appendChild(ed);
+    const x=document.createElement('button');x.className='btn danger';x.textContent='Remover';
     x.onclick=async()=>{if(!confirm('Remover este período?'))return;const {error}=await sb.from('price_rules').delete().eq('id',r.id);if(error){toast('Não foi possível remover.');return}toast('Período removido.');loadAll()};
     td.appendChild(x);tr.appendChild(td);tb.appendChild(tr);
   });
@@ -1188,12 +1218,91 @@ function renderRules(){
 maskDate($('rFrom'));maskDate($('rTo'));
 $('addRule').onclick=async()=>{
   const c=curCabin();if(!c)return;
-  const name=$('rName').value.trim(),from=parseBr($('rFrom').value),to=parseBr($('rTo').value),price=Number($('rPrice').value);
-  if(!name||!from||!to||!(price>=0)||$('rPrice').value===''){toast('Preencha nome, datas (DD/MM/AAAA) e diária.');return}
+  const name=$('rName').value.trim(),from=parseBr($('rFrom').value),to=parseBr($('rTo').value),price=Number($('rPrice').value),wk=numOrNull($('rWeek').value);
+  if(!name||!from||!to||!(price>=0)||$('rPrice').value===''){toast('Preencha nome, datas (DD/MM/AAAA) e a diária de domingo a quinta.');return}
   if(to<from){toast('A data final é anterior à inicial.');return}
-  const {error}=await sb.from('price_rules').insert({cabin_id:c.id,name,start_date:from,end_date:to,price,min_nights:numOrNull($('rMin').value)});
+  if(wk!=null&&!(wk>=0)){toast('Confira a diária de sexta, sábado e feriado.');return}
+  const alvo=$('rAll').checked?cabins.map(x=>x.id):[c.id];
+  const {error}=await sb.from('price_rules').insert(alvo.map(id=>({cabin_id:id,name,start_date:from,end_date:to,price,weekend_price:wk,min_nights:numOrNull($('rMin').value)})));
   if(error){toast('Não foi possível salvar.');return}
-  ['rName','rFrom','rTo','rPrice','rMin'].forEach(i=>$(i).value='');toast('Período adicionado.');loadAll();
+  ['rName','rFrom','rTo','rPrice','rWeek','rMin'].forEach(i=>$(i).value='');$('rAll').checked=false;toast(alvo.length>1?'Período adicionado nas '+alvo.length+' cabanas.':'Período adicionado.');loadAll();
+};
+
+/* ---------- temporadas: preço de cada noite, prévia e feriados ---------- */
+function noitesFeriado(){
+  const set=new Set(),reg=settings.feriado_regra||'ambos';
+  (holidays||[]).forEach(h=>{if(reg!=='vespera')set.add(h.day);if(reg!=='dia')set.add(iso(addDays(fromIso(h.day),-1)))});return set;
+}
+function regraDaNoite(cab,d){ // período mais curto que cobre a noite; empate: o cadastrado por último
+  let r=null;rules.filter(x=>x.cabin_id===cab&&x.start_date<=d&&d<=x.end_date).forEach(x=>{const l=diasEntre(x.start_date,x.end_date);
+    if(!r||l<r.l||(l===r.l&&(x.created_at||'')>(r.x.created_at||'')))r={x,l}});return r?r.x:null;
+}
+function precoNoite(cab,d,fer){
+  const c=cabins.find(x=>x.id===cab)||{},dw=fromIso(d).getDay(),alta=dw===5||dw===6||fer.has(d),r=regraDaNoite(cab,d);
+  let v;if(r)v=(alta&&r.weekend_price!=null)?r.weekend_price:r.price;else v=(alta&&c.weekend_price!=null)?c.weekend_price:c.base_price;
+  return {v:v==null?null:Number(v),r,alta,fer:fer.has(d)};
+}
+function renderPreview(){
+  const box=$('pvMonths');if(!box)return;box.textContent='';const c=curCabin();if(!c)return;
+  if(!pvView){const n=new Date();pvView=new Date(n.getFullYear(),n.getMonth(),1)}
+  const fer=noitesFeriado(),hoje=new Date();hoje.setHours(0,0,0,0);
+  for(let i=0;i<2;i++){
+    const m=new Date(pvView.getFullYear(),pvView.getMonth()+i,1),mon=el('div','mon pv');
+    mon.appendChild(el('h3',null,MESES[m.getMonth()][0].toUpperCase()+MESES[m.getMonth()].slice(1)+' de '+m.getFullYear()));
+    const g=el('div','grid');['D','S','T','Q','Q','S','S'].forEach(x=>g.appendChild(el('div','dow',x)));
+    for(let k=0;k<m.getDay();k++)g.appendChild(el('div','day empty'));
+    const last=new Date(m.getFullYear(),m.getMonth()+1,0).getDate();
+    for(let d=1;d<=last;d++){const dt=new Date(m.getFullYear(),m.getMonth(),d),k=iso(dt),P=precoNoite(c.id,k,fer);
+      const cell=el('div','day'+(dt<hoje?' past':'')+(P.alta?' alta':'')+(P.r?' rule':'')+(P.fer?' fer':''));
+      const top=el('div',null);top.style.cssText='display:flex;justify-content:space-between;width:100%';top.appendChild(el('span',null,String(d)));top.appendChild(el('b',null,P.v==null?'—':'R$ '+Math.round(P.v)));cell.appendChild(top);
+      const h=(holidays||[]).find(x=>x.day===k);
+      cell.appendChild(el('small',null,P.fer?(h?h.name:'véspera de feriado'):(P.r?P.r.name:'')));
+      cell.title=br(k)+': '+(P.v==null?'sem preço':money(P.v))+(P.r?' · período '+P.r.name:' · diária normal')+(P.alta?' · preço de sexta, sábado e feriado':'');
+      g.appendChild(cell)}
+    mon.appendChild(g);box.appendChild(mon);
+  }
+}
+$('pvPrev').onclick=()=>{pvView=new Date(pvView.getFullYear(),pvView.getMonth()-1,1);renderPreview()};
+$('pvNext').onclick=()=>{pvView=new Date(pvView.getFullYear(),pvView.getMonth()+1,1);renderPreview()};
+async function editarPeriodo(r){
+  const v=await askForm('Editar período · '+cabName(r.cabin_id),[
+    {k:'name',label:'Nome',type:'text',value:r.name},
+    {k:'a',label:'De (DD/MM/AAAA)',type:'date',future:true,value:br(r.start_date)},
+    {k:'b',label:'Até, última noite (DD/MM/AAAA)',type:'date',future:true,value:br(r.end_date)},
+    {k:'p',label:'Diária domingo a quinta (R$)',type:'money',req:true,value:String(r.price).replace('.',',')},
+    {k:'w',label:'Diária sexta, sábado e feriado (R$, vazio = mesma)',type:'money',value:r.weekend_price!=null?String(r.weekend_price).replace('.',','):''},
+    {k:'m',label:'Mínimo de noites (vazio = o da cabana)',type:'text',value:r.min_nights!=null?String(r.min_nights):''}],'Salvar');
+  if(!v)return;
+  if(!v.name){toast('Informe o nome.');return}
+  if(v.b<v.a){toast('A data final é anterior à inicial.');return}
+  const mn=v.m?parseInt(v.m,10):null;if(v.m&&!(mn>=1&&mn<=60)){toast('Mínimo de noites inválido.');return}
+  const {error}=await sb.from('price_rules').update({name:v.name,start_date:v.a,end_date:v.b,price:v.p,weekend_price:v.w,min_nights:mn}).eq('id',r.id);
+  if(error){toast('Não foi possível salvar.');return}
+  toast('Período atualizado.');loadAll();
+}
+function renderFer(){
+  const tb=$('ferList');if(!tb)return;tb.textContent='';
+  if(holidays===null){$('ferEmpty').textContent='Esta seção ainda não foi ativada no banco de dados.';return}
+  $('ferRegra').value=settings.feriado_regra||'ambos';
+  const hj=iso(new Date()),l=holidays.filter(h=>h.day>=hj);
+  $('ferEmpty').textContent=l.length?'':'Nenhum feriado futuro cadastrado.';
+  l.forEach(h=>{const tr=document.createElement('tr');const dw=DIAS_SEM[fromIso(h.day).getDay()];
+    [br(h.day),dw[0].toUpperCase()+dw.slice(1),h.name].forEach(t=>tr.appendChild(el('td',null,t)));
+    const td=document.createElement('td');const x=el('button','btn danger','Remover');x.onclick=async()=>{if(!confirm('Remover o feriado '+h.name+' ('+br(h.day)+')?'))return;
+      const {error}=await sb.from('holidays').delete().eq('day',h.day);if(error){toast('Não foi possível remover.');return}toast('Feriado removido.');loadAll()};
+    td.appendChild(x);tr.appendChild(td);tb.appendChild(tr)});
+}
+maskDate($('ferDia'));
+$('ferAdd').onclick=async()=>{
+  const d=parseBr($('ferDia').value),n=$('ferNome').value.trim();
+  if(!d||!n){toast('Informe a data (DD/MM/AAAA) e o nome.');return}
+  const {error}=await sb.from('holidays').upsert({day:d,name:n},{onConflict:'day'});
+  if(error){toast('Não foi possível salvar.');return}
+  $('ferDia').value='';$('ferNome').value='';toast('Feriado salvo.');loadAll();
+};
+$('ferRegra').onchange=async()=>{
+  const v=$('ferRegra').value;const {error}=await sb.from('app_settings').upsert({key:'feriado_regra',value:v,updated_at:new Date().toISOString()},{onConflict:'key'});
+  if(error){toast('Não foi possível salvar.');return}settings.feriado_regra=v;toast('Regra de feriado salva.');renderPreview();
 };
 
 /* ---------- sincronização (iCal) ---------- */
