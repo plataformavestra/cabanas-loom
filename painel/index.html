@@ -115,6 +115,9 @@ th{font-weight:500;color:var(--mut);font-size:12px}
 .fch-cab .hd{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
 .fch-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
 .fch-row input{flex:1}.fch-row input.v{flex:0 0 130px}
+.fch-row .info{flex:0 0 auto;display:flex;flex-direction:column;gap:2px;font-size:12px;color:var(--mut);min-width:150px}
+.fch-row input.falta{border-color:#e0a899;background:#fff8f6}
+@media(max-width:720px){.fch-row{flex-wrap:wrap}.fch-row .info{flex-basis:100%}}
 .fch-x{width:34px;height:34px;flex:0 0 34px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--bad);font-size:18px;line-height:1}
 .fch-x:hover{background:#fbe9e4}
 .fch-sub{text-align:right;font-size:13px;color:var(--mut);margin-top:4px}
@@ -333,8 +336,12 @@ th{font-weight:500;color:var(--mut);font-size:12px}
       <div class="card">
         <h2>Fechamento semanal</h2>
         <div class="hint" style="margin:0 0 12px">Lance as reservas e custos da semana e gere o PDF para o parceiro. <b>Por enquanto nada fica salvo</b>: gere o PDF e guarde-o antes de sair ou recarregar a página.</div>
-        <label for="fchPer">Período de referência</label>
-        <input id="fchPer" placeholder="Ex.: 23 a 29 de junho" style="max-width:360px">
+        <div class="selbar" style="margin-top:0">
+          <div><label for="fchIni">Data de início (entrada)</label><input id="fchIni" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"></div>
+          <div><label for="fchFim">Data de fim (entrada)</label><input id="fchFim" placeholder="DD/MM/AAAA" inputmode="numeric" maxlength="10"></div>
+          <button class="btn" id="fchBuscar" type="button">Buscar reservas do período</button>
+        </div>
+        <div class="hint">Entram as reservas com <b>data de entrada</b> dentro do período. As do site vêm completas; as do Airbnb, Booking e as lançadas por você vêm com as datas, faltando o nome e o valor.</div>
       </div>
       <div class="card">
         <h2>Configuração <span class="hint" style="font-family:inherit;font-size:13px">muda raramente</span></h2>
@@ -1104,8 +1111,12 @@ function fchTot(){
 }
 function fchLinha(item,campoTxt,ph,onDel){
   const r=el('div','fch-row');
-  const t=document.createElement('input');t.placeholder=ph;t.value=item[campoTxt]||'';t.maxLength=120;t.oninput=()=>{item[campoTxt]=t.value};
-  const v=document.createElement('input');v.className='v';v.type='number';v.step='0.01';v.min='0';v.placeholder='Valor';v.value=item.valor||'';v.oninput=()=>{item.valor=fchNum(v.value);fchResumo()};
+  if(item.canal){const inf=el('div','info');const tg=el('span','tag '+item.canal,CANAL_NOME[item.canal]||item.canal);tg.style.alignSelf='flex-start';inf.appendChild(tg);
+    inf.appendChild(el('span',null,br(item.ini)+' a '+br(item.fim)+' ('+diasEntre(item.ini,item.fim)+(diasEntre(item.ini,item.fim)===1?' noite)':' noites)')));r.appendChild(inf)}
+  const t=document.createElement('input');t.placeholder=ph;t.value=item[campoTxt]||'';t.maxLength=120;
+  const v=document.createElement('input');v.className='v';v.type='number';v.step='0.01';v.min='0';v.placeholder='Valor';v.value=item.valor||'';
+  const marca=()=>{if(item.canal){t.classList.toggle('falta',!t.value.trim());v.classList.toggle('falta',!(fchNum(v.value)>0))}};
+  t.oninput=()=>{item[campoTxt]=t.value;marca()};v.oninput=()=>{item.valor=fchNum(v.value);marca();fchResumo()};marca();
   const x=el('button','fch-x','×');x.type='button';x.setAttribute('aria-label','Remover');x.onclick=onDel;
   r.append(t,v,x);return r;
 }
@@ -1116,7 +1127,7 @@ function renderFch(){
     const b=el('div','fch-cab'),hd=el('div','hd');hd.appendChild(el('b',null,c.name));
     const add=el('button','btn ghost','+ adicionar reserva');add.type='button';add.onclick=()=>{l.push({id:fchUid(),nome:'',valor:0});renderFch()};hd.appendChild(add);b.appendChild(hd);
     if(!l.length)b.appendChild(el('p','hint','Nenhuma reserva lançada ainda.'));
-    l.forEach(r=>b.appendChild(fchLinha(r,'nome','Nome do hóspede',()=>{FCH.res[c.id]=l.filter(x=>x.id!==r.id);renderFch()})));
+    l.slice().sort((x,y)=>(x.ini||'9')<(y.ini||'9')?-1:(x.ini||'9')>(y.ini||'9')?1:0).forEach(r=>b.appendChild(fchLinha(r,'nome','Nome do hóspede',()=>{FCH.res[c.id]=l.filter(x=>x.id!==r.id);renderFch()})));
     const sub=el('div','fch-sub');sub.dataset.cab=c.id;b.appendChild(sub);box.appendChild(b);
   });
   const ex=$('fchEx');ex.textContent='';
@@ -1137,11 +1148,34 @@ function fchResumo(){
   ln('Total a pagar ao host',fchFmt(t.total),false,true);
 }
 $('fchAddEx').onclick=()=>{FCH.ex.push({id:fchUid(),descricao:'',valor:0});renderFch()};
+maskDate($('fchIni'));maskDate($('fchFim'));
+function fchPeriodo(){const a=parseBr($('fchIni').value),b=parseBr($('fchFim').value);return (a&&b&&a<=b)?{a,b}:null}
+$('fchBuscar').onclick=()=>{
+  const P=fchPeriodo();if(!P){toast('Informe as datas de início e fim (DD/MM/AAAA), com o fim depois do início.');return}
+  if(diasEntre(P.a,P.b)>366){toast('Período longo demais (máximo de 1 ano).');return}
+  let n=0,falta=0;
+  cabins.forEach(c=>{
+    const antes=FCH.res[c.id]||[],manuais=antes.filter(r=>!r.canal);
+    const auto=estadiasCanal(c.id).filter(e=>e.start>=P.a&&e.start<=P.b).map(e=>{
+      const velho=antes.find(r=>r.canal&&r.cab===c.id&&r.ini===e.start&&r.fim===e.end); // mantém o que você já digitou
+      let nome='',valor=0;
+      if(e.canal==='site'&&requests){const q=requests.find(x=>x.block_id===e.b.id)||requests.find(x=>x.cabin_id===c.id&&x.start_date===e.start&&x.end_date===e.end&&x.status==='confirmada');
+        if(q&&q.status==='confirmada'){nome=q.guest_name||'';valor=q.total_price!=null?Number(q.total_price):0}}
+      if(e.canal==='reserva'&&e.b.note)nome=e.b.note;
+      if(velho){if(velho.nome)nome=velho.nome;if(velho.valor)valor=velho.valor}
+      n++;if(!nome||!valor)falta++;
+      return {id:fchUid(),cab:c.id,canal:e.canal,ini:e.start,fim:e.end,nome,valor};
+    });
+    FCH.res[c.id]=auto.concat(manuais);
+  });
+  renderFch();
+  toast(n?(n+(n===1?' reserva encontrada':' reservas encontradas')+(falta?'. Complete nome e valor das marcadas em vermelho.':'.')):'Nenhuma reserva com entrada nesse período.');
+};
 $('fchLimp').oninput=fchResumo;$('fchCom').oninput=fchResumo;
 function fchRelatorio(){
-  const per=$('fchPer').value.trim(),t=fchTot(),esc=x=>String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  const linhas=(arr,campo,vazio)=>arr.length?arr.map(r=>'<tr><td>'+esc(r[campo]||'(sem '+(campo==='nome'?'nome':'descrição')+')')+'</td><td style="text-align:right;">'+fchFmt(fchNum(r.valor))+'</td></tr>').join(''):'<tr><td colspan="2" style="color:#888;">'+vazio+'</td></tr>';
-  const cabs=cabins.map(c=>{const l=FCH.res[c.id]||[],p=t.porCab[c.id];return '<h2>'+esc(c.name)+'</h2><table>'+linhas(l,'nome','Nenhuma reserva.')+'</table><div class="subtotal">Subtotal '+esc(c.name)+': '+fchFmt(p.v)+' · '+p.n+' reservas</div>'}).join('');
+  const P=fchPeriodo(),per=P?br(P.a)+' a '+br(P.b):'',t=fchTot(),esc=x=>String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const linhas=(arr,campo,vazio)=>arr.length?arr.map(r=>'<tr><td>'+esc(r[campo]||'(sem '+(campo==='nome'?'nome':'descrição')+')')+(r.canal?'<br><span style="font-size:12px;color:#6b6258;">'+esc(CANAL_NOME[r.canal]||r.canal)+' · '+br(r.ini)+' a '+br(r.fim)+'</span>':'')+'</td><td style="text-align:right;">'+fchFmt(fchNum(r.valor))+'</td></tr>').join(''):'<tr><td colspan="2" style="color:#888;">'+vazio+'</td></tr>';
+  const cabs=cabins.map(c=>{const l=(FCH.res[c.id]||[]).slice().sort((x,y)=>(x.ini||'9')<(y.ini||'9')?-1:1),p=t.porCab[c.id];return '<h2>'+esc(c.name)+'</h2><table>'+linhas(l,'nome','Nenhuma reserva.')+'</table><div class="subtotal">Subtotal '+esc(c.name)+': '+fchFmt(p.v)+' · '+p.n+' reservas</div>'}).join('');
   return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Fechamento '+esc(per)+'</title><style>'+
   'body{font-family:Georgia,serif;color:#2b2620;max-width:680px;margin:40px auto;padding:0 20px;}h1{font-size:22px;font-weight:normal;margin-bottom:4px;}.sub{font-family:Arial,sans-serif;font-size:13px;color:#6b6258;margin-bottom:28px;}h2{font-family:Arial,sans-serif;font-size:13px;text-transform:uppercase;letter-spacing:1px;color:#6b6258;margin:28px 0 10px;}table{width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;}td{padding:6px 0;border-bottom:1px solid #e4ddd2;}.subtotal{text-align:right;font-family:Arial,sans-serif;font-size:12px;color:#6b6258;padding:6px 0;}.summary-line{display:flex;justify-content:space-between;font-family:Arial,sans-serif;font-size:14px;padding:8px 0;border-bottom:1px solid #e4ddd2;}.total{font-size:18px;font-weight:bold;border-top:2px solid #2b2620;margin-top:8px;padding-top:14px;border-bottom:none;}.neg{color:#a3402f;}@media print{body{margin:0;}}'+
   '</style></head><body><h1>Fechamento semanal — Cabanas LOOM</h1><div class="sub">'+(per?'Período: '+esc(per):'')+'</div>'+cabs+
@@ -1156,9 +1190,11 @@ function fchRelatorio(){
   '<script>window.onload=function(){setTimeout(function(){window.print();},300);};<\/script></body></html>';
 }
 $('fchPdf').onclick=()=>{
+  const pend=cabins.flatMap(c=>FCH.res[c.id]||[]).filter(r=>r.canal&&(!r.nome||!r.valor)).length;
+  if(pend&&!confirm(pend+(pend===1?' reserva está':' reservas estão')+' sem nome ou valor. Gerar o PDF mesmo assim?'))return;
   const url=URL.createObjectURL(new Blob([fchRelatorio()],{type:'text/html'}));
   const w=window.open(url,'_blank');
-  if(!w){const per=$('fchPer').value.trim(),nome=(per||'semana').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+  if(!w){const P=fchPeriodo(),per=P?P.a+'-a-'+P.b:'',nome=(per||'semana').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
     const a=document.createElement('a');a.href=url;a.download='fechamento-loom-'+(nome||'semana')+'.html';document.body.appendChild(a);a.click();a.remove();
     toast('Pop-up bloqueado: o relatório foi baixado. Abra o arquivo para imprimir.')}
   setTimeout(()=>URL.revokeObjectURL(url),10000);
