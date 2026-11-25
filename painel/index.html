@@ -110,6 +110,17 @@ th{font-weight:500;color:var(--mut);font-size:12px}
 .ov .it span{line-height:1.25}
 .ov .warn{color:var(--bad);font-size:13px;margin-top:8px;font-weight:600}
 @media(max-width:720px){.ovgrid{grid-template-columns:1fr}}
+.fch-cab{border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:12px;border-left:4px solid var(--acc)}
+.fch-cab:nth-child(2n){border-left-color:#3b6e8a}
+.fch-cab .hd{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.fch-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.fch-row input{flex:1}.fch-row input.v{flex:0 0 130px}
+.fch-x{width:34px;height:34px;flex:0 0 34px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--bad);font-size:18px;line-height:1}
+.fch-x:hover{background:#fbe9e4}
+.fch-sub{text-align:right;font-size:13px;color:var(--mut);margin-top:4px}
+.fch-line{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.fch-line .neg{color:var(--bad)}
+.fch-line.total{font-size:18px;font-weight:700;border-bottom:0;border-top:2px solid var(--ink);margin-top:6px;padding-top:14px}
 .hide{display:none!important}
 @media(max-width:720px){.months{grid-template-columns:1fr}.g2,.g3{grid-template-columns:1fr}main{padding:14px 12px 60px}header,nav{padding-left:12px;padding-right:12px}}
 </style>
@@ -140,6 +151,7 @@ th{font-weight:500;color:var(--mut);font-size:12px}
     <button data-tab="res" id="navRes">Reservas</button>
     <button data-tab="msg">Mensagens automáticas</button>
     <button data-tab="est">Estoque</button>
+    <button data-tab="fch">Fechamentos</button>
   </nav>
   <main>
     <div id="tab-ini"><div id="iniBox"></div></div>
@@ -317,6 +329,35 @@ th{font-weight:500;color:var(--mut);font-size:12px}
       </div>
     </div>
 
+    <div id="tab-fch" class="hide">
+      <div class="card">
+        <h2>Fechamento semanal</h2>
+        <div class="hint" style="margin:0 0 12px">Lance as reservas e custos da semana e gere o PDF para o parceiro. <b>Por enquanto nada fica salvo</b>: gere o PDF e guarde-o antes de sair ou recarregar a página.</div>
+        <label for="fchPer">Período de referência</label>
+        <input id="fchPer" placeholder="Ex.: 23 a 29 de junho" style="max-width:360px">
+      </div>
+      <div class="card">
+        <h2>Configuração <span class="hint" style="font-family:inherit;font-size:13px">muda raramente</span></h2>
+        <div class="g2">
+          <div class="row"><label for="fchLimp">Valor da limpeza + lavanderia, por reserva (R$)</label><input id="fchLimp" type="number" step="0.01" min="0" value="250"></div>
+          <div class="row"><label for="fchCom">Comissão do host (%), aplicada sobre o saldo combinado</label><input id="fchCom" type="number" step="0.1" min="0" max="100" value="15"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Reservas da semana, por cabana</h2>
+        <div id="fchCabs"></div>
+      </div>
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px"><h2 style="margin:0">Custos extras (produtos de limpeza, manutenção etc.)</h2><button class="btn ghost" id="fchAddEx" type="button">+ adicionar item</button></div>
+        <div id="fchEx"></div>
+      </div>
+      <div class="card">
+        <h2>Resumo combinado: valor a pagar ao host</h2>
+        <div id="fchSum"></div>
+      </div>
+      <button class="btn" id="fchPdf" type="button" style="padding:12px 20px">Gerar PDF para Host</button>
+    </div>
+
     <div id="tab-sync" class="hide">
       <div class="card">
         <h2>Calendários do Airbnb e do Booking</h2>
@@ -392,7 +433,7 @@ async function loadAll(){
   const hd=await sb.from('holidays').select('*').order('day');holidays=hd.error?null:(hd.data||[]);
   const ge=await sb.from('gas_events').select('*').order('event_date').order('created_at');gasEv=ge.error?null:(ge.data||[]);
   const gl=await sb.from('glass_events').select('*').order('event_date').order('created_at');glassEv=gl.error?null:(gl.data||[]);
-  fillCabinSelects();renderCal();renderBlocks();loadCabinForm();renderRules();renderSync();renderRes();renderMsg();renderEst();renderIni();renderPreview();renderFer();
+  fillCabinSelects();renderCal();renderBlocks();loadCabinForm();renderRules();renderSync();renderRes();renderMsg();renderEst();renderIni();renderPreview();renderFer();renderFch();
 }
 function fillCabinSelects(){
   const keep1=$('calCabin').value,keep2=$('prCabin').value;
@@ -1049,6 +1090,81 @@ function renderIni(){
   box.appendChild(c3);
 }
 
+/* ---------- fechamento semanal (trazido da ferramenta externa; ainda não salva nada) ---------- */
+const FCH={res:{},ex:[]};
+const fchFmt=n=>'R$ '+(Math.round(n*100)/100).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const fchUid=()=>Math.random().toString(36).slice(2,9);
+const fchNum=v=>parseFloat(v)||0;
+function fchCfg(){return {limp:fchNum($('fchLimp').value),com:fchNum($('fchCom').value)}}
+function fchTot(){
+  const cfg=fchCfg(),porCab={};let fat=0,qtd=0;
+  cabins.forEach(c=>{const l=FCH.res[c.id]||[];const v=l.reduce((a,r)=>a+fchNum(r.valor),0);porCab[c.id]={v,n:l.length};fat+=v;qtd+=l.length});
+  const limp=qtd*cfg.limp,saldo=fat-limp,com=Math.max(saldo,0)*(cfg.com/100),ex=FCH.ex.reduce((a,e)=>a+fchNum(e.valor),0);
+  return {cfg,porCab,fat,qtd,limp,saldo,com,ex,total:limp+com+ex};
+}
+function fchLinha(item,campoTxt,ph,onDel){
+  const r=el('div','fch-row');
+  const t=document.createElement('input');t.placeholder=ph;t.value=item[campoTxt]||'';t.maxLength=120;t.oninput=()=>{item[campoTxt]=t.value};
+  const v=document.createElement('input');v.className='v';v.type='number';v.step='0.01';v.min='0';v.placeholder='Valor';v.value=item.valor||'';v.oninput=()=>{item.valor=fchNum(v.value);fchResumo()};
+  const x=el('button','fch-x','×');x.type='button';x.setAttribute('aria-label','Remover');x.onclick=onDel;
+  r.append(t,v,x);return r;
+}
+function renderFch(){
+  const box=$('fchCabs');box.textContent='';
+  cabins.forEach(c=>{
+    const l=FCH.res[c.id]=FCH.res[c.id]||[];
+    const b=el('div','fch-cab'),hd=el('div','hd');hd.appendChild(el('b',null,c.name));
+    const add=el('button','btn ghost','+ adicionar reserva');add.type='button';add.onclick=()=>{l.push({id:fchUid(),nome:'',valor:0});renderFch()};hd.appendChild(add);b.appendChild(hd);
+    if(!l.length)b.appendChild(el('p','hint','Nenhuma reserva lançada ainda.'));
+    l.forEach(r=>b.appendChild(fchLinha(r,'nome','Nome do hóspede',()=>{FCH.res[c.id]=l.filter(x=>x.id!==r.id);renderFch()})));
+    const sub=el('div','fch-sub');sub.dataset.cab=c.id;b.appendChild(sub);box.appendChild(b);
+  });
+  const ex=$('fchEx');ex.textContent='';
+  if(!FCH.ex.length)ex.appendChild(el('p','hint','Nenhum custo extra nesta semana.'));
+  FCH.ex.forEach(e=>ex.appendChild(fchLinha(e,'descricao','Descrição (ex.: produtos de limpeza)',()=>{FCH.ex=FCH.ex.filter(x=>x.id!==e.id);renderFch()})));
+  fchResumo();
+}
+function fchResumo(){
+  const t=fchTot();
+  document.querySelectorAll('#fchCabs .fch-sub').forEach(s=>{const p=t.porCab[s.dataset.cab]||{v:0,n:0};s.textContent='Subtotal '+cabName(s.dataset.cab)+': '+fchFmt(p.v)+' · '+p.n+(p.n===1?' reserva':' reservas')});
+  const box=$('fchSum');box.textContent='';
+  const ln=(a,b,neg,tot)=>{const d=el('div','fch-line'+(tot?' total':''));d.appendChild(el('span',null,a));d.appendChild(el('span',neg?'neg':null,b));box.appendChild(d)};
+  ln('Total faturado ('+t.qtd+(t.qtd===1?' reserva':' reservas')+', '+cabins.map(c=>c.name).join(' + ')+')',fchFmt(t.fat));
+  ln('Limpeza + lavanderia ('+t.qtd+' × '+fchFmt(t.cfg.limp)+')','– '+fchFmt(t.limp),true);
+  ln('Saldo após limpezas',fchFmt(t.saldo));
+  ln('Comissão do host ('+t.cfg.com+'%)','– '+fchFmt(t.com),true);
+  ln('Custos extras','– '+fchFmt(t.ex),true);
+  ln('Total a pagar ao host',fchFmt(t.total),false,true);
+}
+$('fchAddEx').onclick=()=>{FCH.ex.push({id:fchUid(),descricao:'',valor:0});renderFch()};
+$('fchLimp').oninput=fchResumo;$('fchCom').oninput=fchResumo;
+function fchRelatorio(){
+  const per=$('fchPer').value.trim(),t=fchTot(),esc=x=>String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const linhas=(arr,campo,vazio)=>arr.length?arr.map(r=>'<tr><td>'+esc(r[campo]||'(sem '+(campo==='nome'?'nome':'descrição')+')')+'</td><td style="text-align:right;">'+fchFmt(fchNum(r.valor))+'</td></tr>').join(''):'<tr><td colspan="2" style="color:#888;">'+vazio+'</td></tr>';
+  const cabs=cabins.map(c=>{const l=FCH.res[c.id]||[],p=t.porCab[c.id];return '<h2>'+esc(c.name)+'</h2><table>'+linhas(l,'nome','Nenhuma reserva.')+'</table><div class="subtotal">Subtotal '+esc(c.name)+': '+fchFmt(p.v)+' · '+p.n+' reservas</div>'}).join('');
+  return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Fechamento '+esc(per)+'</title><style>'+
+  'body{font-family:Georgia,serif;color:#2b2620;max-width:680px;margin:40px auto;padding:0 20px;}h1{font-size:22px;font-weight:normal;margin-bottom:4px;}.sub{font-family:Arial,sans-serif;font-size:13px;color:#6b6258;margin-bottom:28px;}h2{font-family:Arial,sans-serif;font-size:13px;text-transform:uppercase;letter-spacing:1px;color:#6b6258;margin:28px 0 10px;}table{width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:14px;}td{padding:6px 0;border-bottom:1px solid #e4ddd2;}.subtotal{text-align:right;font-family:Arial,sans-serif;font-size:12px;color:#6b6258;padding:6px 0;}.summary-line{display:flex;justify-content:space-between;font-family:Arial,sans-serif;font-size:14px;padding:8px 0;border-bottom:1px solid #e4ddd2;}.total{font-size:18px;font-weight:bold;border-top:2px solid #2b2620;margin-top:8px;padding-top:14px;border-bottom:none;}.neg{color:#a3402f;}@media print{body{margin:0;}}'+
+  '</style></head><body><h1>Fechamento semanal — Cabanas LOOM</h1><div class="sub">'+(per?'Período: '+esc(per):'')+'</div>'+cabs+
+  '<h2>Custos extras</h2><table>'+linhas(FCH.ex,'descricao','Nenhum custo extra.')+'</table>'+
+  '<h2>Resumo combinado — valor a pagar ao host</h2>'+
+  '<div class="summary-line"><span>Total faturado ('+t.qtd+' reservas)</span><span>'+fchFmt(t.fat)+'</span></div>'+
+  '<div class="summary-line"><span>Limpeza + lavanderia ('+t.qtd+' limpezas × '+fchFmt(t.cfg.limp)+')</span><span class="neg">– '+fchFmt(t.limp)+'</span></div>'+
+  '<div class="summary-line"><span>Saldo após limpezas</span><span>'+fchFmt(t.saldo)+'</span></div>'+
+  '<div class="summary-line"><span>Comissão do host ('+t.cfg.com+'%)</span><span class="neg">– '+fchFmt(t.com)+'</span></div>'+
+  '<div class="summary-line"><span>Custos extras</span><span class="neg">– '+fchFmt(t.ex)+'</span></div>'+
+  '<div class="summary-line total"><span>Total a pagar ao host</span><span>'+fchFmt(t.total)+'</span></div>'+
+  '<script>window.onload=function(){setTimeout(function(){window.print();},300);};<\/script></body></html>';
+}
+$('fchPdf').onclick=()=>{
+  const url=URL.createObjectURL(new Blob([fchRelatorio()],{type:'text/html'}));
+  const w=window.open(url,'_blank');
+  if(!w){const per=$('fchPer').value.trim(),nome=(per||'semana').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
+    const a=document.createElement('a');a.href=url;a.download='fechamento-loom-'+(nome||'semana')+'.html';document.body.appendChild(a);a.click();a.remove();
+    toast('Pop-up bloqueado: o relatório foi baixado. Abra o arquivo para imprimir.')}
+  setTimeout(()=>URL.revokeObjectURL(url),10000);
+};
+window.addEventListener('beforeunload',e=>{const tem=FCH.ex.length||Object.values(FCH.res).some(l=>l.length);if(tem){e.preventDefault();e.returnValue=''}});
+
 /* ---------- abas ---------- */
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
@@ -1060,6 +1176,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   $('tab-res').classList.toggle('hide',b.dataset.tab!=='res');
   $('tab-msg').classList.toggle('hide',b.dataset.tab!=='msg');
   $('tab-est').classList.toggle('hide',b.dataset.tab!=='est');
+  $('tab-fch').classList.toggle('hide',b.dataset.tab!=='fch');
 });
 
 /* ---------- calendário ---------- */
