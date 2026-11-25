@@ -64,6 +64,30 @@ th{font-weight:500;color:var(--mut);font-size:12px}
 .hint{color:var(--mut);font-size:13px;margin-top:6px}
 .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:10px;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:20}
 .toast.on{opacity:1}
+.estgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.est{border:1px solid var(--line);border-radius:10px;padding:12px;background:#fff}
+.est h3{font-size:17px;margin-bottom:8px}
+.bot{border-top:1px solid var(--line);padding:10px 0 4px}
+.est h3+.bot{border-top:0;padding-top:2px}
+.bot .top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.pill{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600;color:#fff}
+.pill.em_uso{background:var(--ok)}.pill.cheio{background:var(--booking)}.pill.vazio{background:var(--bad)}.pill.nada{background:#9a8b78}
+.bot p{margin:6px 0;font-size:14px}
+.bot .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.bot .acts .btn,.est .acts .btn{padding:7px 12px;font-size:14px}
+.alerta{background:#fbe9e4;border:1px solid #efc3b8;color:var(--bad);border-radius:8px;padding:8px 10px;font-size:13px;margin-top:8px}
+.big{font:500 34px/1 Georgia,serif;margin:4px 0 2px}
+.big.neg{color:var(--bad)}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.kpi{border:1px solid var(--line);border-radius:10px;padding:10px;background:#fff}
+.kpi b{display:block;font:500 20px Georgia,serif}.kpi span{font-size:12px;color:var(--mut)}
+.dlg{position:fixed;inset:0;background:rgba(30,22,14,.45);display:flex;align-items:center;justify-content:center;padding:16px;z-index:30}
+.dlgbox{background:var(--card);border-radius:14px;padding:18px;width:100%;max-width:400px;max-height:90vh;overflow:auto}
+.dlgbox h3{font-size:19px;margin-bottom:4px}
+.dlgbox .row{margin:10px 0}
+.dlgbox .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.dlgbox .ck{display:flex;gap:8px;align-items:flex-start;font-size:14px;color:var(--ink)}.dlgbox .ck input{width:auto;margin-top:3px}
+@media(max-width:720px){.estgrid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}}
 .hide{display:none!important}
 @media(max-width:720px){.months{grid-template-columns:1fr}.g2,.g3{grid-template-columns:1fr}main{padding:14px 12px 60px}header,nav{padding-left:12px;padding-right:12px}}
 </style>
@@ -92,6 +116,7 @@ th{font-weight:500;color:var(--mut);font-size:12px}
     <button data-tab="sync">Sincronização</button>
     <button data-tab="res" id="navRes">Reservas</button>
     <button data-tab="msg">Mensagens automáticas</button>
+    <button data-tab="est">Estoque</button>
   </nav>
   <main>
     <div id="tab-cal">
@@ -202,6 +227,28 @@ th{font-weight:500;color:var(--mut);font-size:12px}
       <div id="msgBlocks"></div>
     </div>
 
+    <div id="tab-est" class="hide">
+      <div class="card">
+        <h2>Botijões de gás</h2>
+        <div class="hint" style="margin:0 0 12px">Cada cabana tem o Botijão 1 e o Botijão 2. Quando um acabar, clique em <b>Acabou</b>: o outro passa para "em uso" na mesma data. Quando recarregar, clique em <b>Recarreguei</b> e informe o valor.</div>
+        <div id="gasCards" class="estgrid"></div>
+      </div>
+      <div class="card">
+        <h2>Números do gás</h2>
+        <div id="gasStats"></div>
+      </div>
+      <div class="card">
+        <h2>Taças extras</h2>
+        <div class="hint" style="margin:0 0 12px">Quando uma taça quebrar e vocês usarem uma extra, clique em <b>Quebrou uma</b>. Ao comprar, clique em <b>Comprei</b>.</div>
+        <div id="tacaCards" class="estgrid"></div>
+      </div>
+      <div class="card">
+        <h2>Histórico do estoque</h2>
+        <div class="hint" style="margin:0 0 10px">Registrou algo errado? Use <b>Desfazer</b> na linha.</div>
+        <div id="estHist"></div>
+      </div>
+    </div>
+
     <div id="tab-sync" class="hide">
       <div class="card">
         <h2>Calendários do Airbnb e do Booking</h2>
@@ -217,6 +264,7 @@ th{font-weight:500;color:var(--mut);font-size:12px}
     </div>
   </main>
 </section>
+<div id="dlg" class="dlg hide" role="dialog" aria-modal="true"><form id="dlgf" class="dlgbox"></form></div>
 <div class="toast" id="toast"></div>
 
 <script src="supabase.js"></script>
@@ -228,6 +276,7 @@ const $=id=>document.getElementById(id);
 const MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
 const ORIGEM={manual:'Bloqueio seu',airbnb:'Airbnb',booking:'Booking',site:'Site'};
 let templates=null,settings={},msgDirty=false,lastField=null;
+let gasEv=null,glassEv=null;
 let cabins=[],blocks=[],rules=[],sources=[],feeds=[],requests=null,view=new Date(),selA=null,selB=null;
 view=new Date(view.getFullYear(),view.getMonth(),1);
 
@@ -272,7 +321,9 @@ async function loadAll(){
   requests=rq.error?null:(rq.data||[]);
   const mt=await sb.from('message_templates').select('*');templates=mt.error?null:(mt.data||[]);
   const st=await sb.from('app_settings').select('*');settings={};(st.data||[]).forEach(x=>{settings[x.key]=x.value});
-  fillCabinSelects();renderCal();renderBlocks();loadCabinForm();renderRules();renderSync();renderRes();renderMsg();
+  const ge=await sb.from('gas_events').select('*').order('event_date').order('created_at');gasEv=ge.error?null:(ge.data||[]);
+  const gl=await sb.from('glass_events').select('*').order('event_date').order('created_at');glassEv=gl.error?null:(gl.data||[]);
+  fillCabinSelects();renderCal();renderBlocks();loadCabinForm();renderRules();renderSync();renderRes();renderMsg();renderEst();
 }
 function fillCabinSelects(){
   const keep1=$('calCabin').value,keep2=$('prCabin').value;
@@ -500,6 +551,242 @@ $('msgWaSave').onclick=async()=>{
   settings.whatsapp_host=d;toast('WhatsApp salvo.');
 };
 
+/* ---------- estoque: botijões de gás e taças extras ---------- */
+const GAS_NOME={em_uso:'Em uso',cheio:'Cheio, de reserva',vazio:'Vazio',nada:'Sem informação'};
+const hojeIso=()=>iso(new Date());
+const nOcup=b=>b.source!=='manual'; // conta só reservas (site, Airbnb, Booking); bloqueios seus não contam
+const plDias=n=>n+(n===1?' dia':' dias'),plNoites=n=>n+(n===1?' noite ocupada':' noites ocupadas');
+function diasEntre(a,b){return Math.round((fromIso(b)-fromIso(a))/86400000)}
+function noitesOcupadas(cab,a,b){ // datas (noites) ocupadas no intervalo [a,b)
+  const set=new Set();
+  blocks.filter(x=>x.cabin_id===cab&&nOcup(x)&&x.start_date<b&&x.end_date>a).forEach(x=>{
+    let d=x.start_date<a?a:x.start_date;const fim=x.end_date>b?b:x.end_date;
+    while(d<fim){set.add(d);d=iso(addDays(fromIso(d),1))}});
+  return set;
+}
+function estadias(cab){ // reservas sem duplicar (a mesma estadia pode vir do site e do Airbnb)
+  const l=blocks.filter(x=>x.cabin_id===cab&&nOcup(x)).map(x=>({a:x.start_date,b:x.end_date})).sort((x,y)=>x.a<y.a?-1:x.a>y.a?1:0);
+  const out=[];l.forEach(x=>{const u=out[out.length-1];if(u&&x.a<u.b){if(x.b>u.b)u.b=x.b}else out.push({...x})});return out;
+}
+function reservasEntre(cab,a,b){ // conta a fração de cada estadia que caiu no intervalo
+  let t=0;estadias(cab).forEach(e=>{const tot=diasEntre(e.a,e.b);if(tot<=0)return;
+    const ini=e.a>a?e.a:a,fim=e.b<b?e.b:b;const n=diasEntre(ini,fim);if(n>0)t+=n/tot});return t;
+}
+function gasDe(cab){return (gasEv||[]).filter(e=>e.cabin_id===cab)}
+function estadoBot(cab,bot){
+  const ev=gasDe(cab).filter(e=>e.bottle===bot);const u=ev[ev.length-1];
+  return u?{kind:u.kind,desde:u.event_date,ev:u}:{kind:'nada'};
+}
+function ciclos(cab){ // períodos completos de uso: entrou em uso -> acabou (de verdade)
+  const out=[];
+  [1,2].forEach(bot=>{
+    const ev=gasDe(cab).filter(e=>e.bottle===bot);let ini=null,custo=null,ultCusto=null;
+    ev.forEach(e=>{
+      if(e.kind==='cheio'){if(e.cost!=null)ultCusto=Number(e.cost);ini=null}
+      else if(e.kind==='em_uso'){ini=e.event_date;custo=ultCusto;ultCusto=null}
+      else if(e.kind==='vazio'){
+        if(ini&&!e.ajuste&&e.event_date>=ini){const n=noitesOcupadas(cab,ini,e.event_date).size;
+          out.push({cab,bot,ini,fim:e.event_date,dias:diasEntre(ini,e.event_date),noites:n,res:reservasEntre(cab,ini,e.event_date),custo})}
+        ini=null}
+    });
+  });
+  return out.sort((x,y)=>x.fim<y.fim?-1:1);
+}
+function custoMedioRecarga(cab){const c=gasDe(cab).filter(e=>e.kind==='cheio'&&e.cost!=null).map(e=>Number(e.cost));return c.length?c.reduce((a,b)=>a+b,0)/c.length:null}
+function previsao(cab,bot){
+  const st=estadoBot(cab,bot);if(st.kind!=='em_uso')return null;
+  const cs=ciclos(cab).filter(c=>c.noites>0);
+  const hoje=hojeIso();const usadas=noitesOcupadas(cab,st.desde,hoje).size;
+  if(!cs.length)return {usadas,txt:'Previsão: ainda juntando dados. Ela aparece depois que o primeiro botijão desta cabana acabar.'};
+  const media=cs.reduce((a,c)=>a+c.noites,0)/cs.length;const fraca=cs.length<3?' (estimativa ainda fraca: só '+cs.length+(cs.length>1?' botijões medidos':' botijão medido')+')':'';
+  const resta=media-usadas;
+  if(resta<=0)return {usadas,media,txt:'Já passou da média de '+media.toFixed(0)+' noites por botijão: pode acabar a qualquer momento'+fraca+'.',alerta:true};
+  const fut=[...noitesOcupadas(cab,hoje,'2100-01-01')].sort();
+  if(fut.length>=resta){const d=fut[Math.ceil(resta)-1];return {usadas,media,txt:'Deve acabar por volta de '+br(iso(addDays(fromIso(d),1)))+fraca+'.',alerta:diasEntre(hoje,d)<=7}}
+  const ult=fut.length?br(iso(addDays(fromIso(fut[fut.length-1]),1))):null;
+  return {usadas,media,txt:'Faltam cerca de '+Math.ceil(resta)+' noites ocupadas para acabar. '+(ult?'Com as reservas já marcadas, dura pelo menos até '+ult:'Ainda não há reservas futuras para estimar a data')+fraca+'.'};
+}
+
+/* janela de formulário */
+function askForm(title,fields,okTxt){
+  return new Promise(res=>{
+    const d=$('dlg'),f=$('dlgf');f.textContent='';
+    f.appendChild(el('h3',null,title));
+    const ins={};
+    fields.forEach(x=>{
+      if(x.info){const p=el('p','hint',x.info);if(x.alerta)p.className='alerta';f.appendChild(p);return}
+      const r=el('div','row');
+      if(x.type==='check'){const l=el('label','ck');const i=document.createElement('input');i.type='checkbox';i.checked=!!x.value;l.appendChild(i);l.appendChild(el('span',null,x.label));r.appendChild(l);ins[x.k]=i}
+      else{r.appendChild(el('label',null,x.label));let i;
+        if(x.type==='select'){i=document.createElement('select');x.options.forEach(([v,t])=>{const o=document.createElement('option');o.value=v;o.textContent=t;i.appendChild(o)});if(x.value!=null)i.value=x.value}
+        else{i=document.createElement('input');i.value=x.value==null?'':x.value;if(x.type==='date'){i.inputMode='numeric';i.placeholder='DD/MM/AAAA';i.maxLength=10;maskDate(i)}
+          if(x.type==='money'){i.inputMode='decimal';i.placeholder='Ex.: 130,00'}if(x.type==='int'){i.inputMode='numeric'}if(x.type==='text'){i.maxLength=300}}
+        r.appendChild(i);ins[x.k]=i}
+      f.appendChild(r)});
+    const err=el('p','err','');f.appendChild(err);
+    const a=el('div','acts');const c=el('button','btn ghost','Cancelar');c.type='button';const o=el('button','btn',okTxt||'Salvar');o.type='submit';a.append(c,o);f.appendChild(a);
+    const fechar=v=>{d.classList.add('hide');f.onsubmit=null;res(v)};
+    c.onclick=()=>fechar(null);
+    d.onclick=e=>{if(e.target===d)fechar(null)};
+    f.onsubmit=e=>{e.preventDefault();const out={};
+      for(const x of fields){if(!x.k)continue;const i=ins[x.k];
+        if(x.type==='check'){out[x.k]=i.checked;continue}
+        const v=i.value.trim();
+        if(x.type==='date'){const z=parseBr(v);if(!z){err.textContent='Confira a data (DD/MM/AAAA).';return}if(z>hojeIso()){err.textContent='A data não pode ser no futuro.';return}out[x.k]=z}
+        else if(x.type==='money'){if(!v){if(x.req){err.textContent='Informe o valor.';return}out[x.k]=null;continue}const n=Number(v.replace(/\./g,'').replace(',','.').replace(/[^\d.]/g,''));if(!isFinite(n)||n<0||n>=100000){err.textContent='Confira o valor.';return}out[x.k]=Math.round(n*100)/100}
+        else if(x.type==='int'){const n=parseInt(v,10);if(!(n>=x.min&&n<=x.max)){err.textContent='Informe um número de '+x.min+' a '+x.max+'.';return}out[x.k]=n}
+        else out[x.k]=v||null}
+      fechar(out)};
+    d.classList.remove('hide');const first=f.querySelector('input,select');if(first)first.focus();
+  });
+}
+async function gravar(tab,rows){
+  const {error}=await sb.from(tab).insert(rows);
+  if(error){toast('Não foi possível salvar.');return false}
+  await loadAll();toast('Registrado.');return true;
+}
+const uuid=()=>(crypto.randomUUID?crypto.randomUUID():'10000000-1000-4000-8000-100000000000'.replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16)));
+
+async function acaoAcabou(cab,bot){
+  const outro=bot===1?2:1,so=estadoBot(cab,outro);
+  const campos=[{k:'d',label:'Data em que acabou',type:'date',value:br(hojeIso())},{k:'note',label:'Observação (opcional)',type:'text'}];
+  if(so.kind==='cheio')campos.unshift({info:'O Botijão '+outro+' passa a ficar "em uso" nesta mesma data.'});
+  else campos.unshift({info:'Atenção: o Botijão '+outro+' não está cheio ('+GAS_NOME[so.kind].toLowerCase()+'). A cabana pode ficar sem gás.',alerta:true});
+  const v=await askForm(cabName(cab)+' · Botijão '+bot+' acabou',campos,'Registrar');if(!v)return;
+  const g=uuid(),rows=[{cabin_id:cab,bottle:bot,kind:'vazio',event_date:v.d,note:v.note,grupo:g}];
+  if(so.kind==='cheio')rows.push({cabin_id:cab,bottle:outro,kind:'em_uso',event_date:v.d,grupo:g,note:'Entrou quando o Botijão '+bot+' acabou'});
+  await gravar('gas_events',rows);
+}
+async function acaoRecarga(cab,bot){
+  const outro=bot===1?2:1,so=estadoBot(cab,outro);
+  const campos=[{k:'d',label:'Data da recarga',type:'date',value:br(hojeIso())},{k:'cost',label:'Valor pago (R$)',type:'money'},{k:'note',label:'Observação (opcional)',type:'text'}];
+  if(so.kind!=='em_uso')campos.push({k:'usar',label:'Já colocar este botijão em uso (o Botijão '+outro+' não está em uso)',type:'check',value:true});
+  const v=await askForm(cabName(cab)+' · Botijão '+bot+' recarregado',campos,'Registrar');if(!v)return;
+  const g=uuid(),rows=[{cabin_id:cab,bottle:bot,kind:'cheio',event_date:v.d,cost:v.cost,note:v.note,grupo:g}];
+  if(v.usar)rows.push({cabin_id:cab,bottle:bot,kind:'em_uso',event_date:v.d,grupo:g});
+  await gravar('gas_events',rows);
+}
+async function acaoCorrigir(cab,bot){
+  const st=estadoBot(cab,bot);
+  const v=await askForm(cabName(cab)+' · Botijão '+bot+': situação atual',[
+    {info:'Use para informar a situação de hoje (no começo) ou corrigir um erro. Não conta como "acabou" nas estatísticas.'},
+    {k:'kind',label:'Situação',type:'select',options:[['em_uso','Em uso'],['cheio','Cheio, de reserva'],['vazio','Vazio']],value:st.kind==='nada'?'em_uso':st.kind},
+    {k:'d',label:'Desde quando (se em uso: data em que começou a ser usado, mesmo aproximada)',type:'date',value:br(st.desde||hojeIso())},
+    {k:'note',label:'Observação (opcional)',type:'text'}],'Salvar');
+  if(!v)return;
+  if(v.kind==='em_uso'){const so=estadoBot(cab,bot===1?2:1);if(so.kind==='em_uso'&&!confirm('O outro botijão também está "em uso". Os dois ao mesmo tempo não acontece na cabana. Salvar mesmo assim?'))return}
+  await gravar('gas_events',[{cabin_id:cab,bottle:bot,kind:v.kind,event_date:v.d,ajuste:true,note:v.note}]);
+}
+function estoqueTacas(cab){return (glassEv||[]).filter(e=>e.cabin_id===cab).reduce((a,e)=>a+e.delta,0)}
+async function acaoQuebra(cab){
+  const atual=estoqueTacas(cab);
+  const campos=[{k:'n',label:'Quantas quebraram',type:'int',value:1,min:1,max:20},{k:'d',label:'Data',type:'date',value:br(hojeIso())},{k:'note',label:'Observação (opcional)',type:'text'}];
+  if(atual<=0)campos.unshift({info:'Não há taças extras nesta cabana. O registro vai mostrar quantas estão faltando.',alerta:true});
+  const v=await askForm(cabName(cab)+' · Taça quebrada',campos,'Registrar');if(!v)return;
+  await gravar('glass_events',[{cabin_id:cab,kind:'quebra',delta:-v.n,event_date:v.d,note:v.note}]);
+}
+async function acaoCompra(cab){
+  const v=await askForm(cabName(cab)+' · Compra de taças',[{k:'n',label:'Quantas comprou',type:'int',value:1,min:1,max:50},{k:'d',label:'Data da compra',type:'date',value:br(hojeIso())},{k:'cost',label:'Valor total pago (R$, opcional)',type:'money'},{k:'note',label:'Observação (opcional)',type:'text'}],'Registrar');
+  if(!v)return;
+  await gravar('glass_events',[{cabin_id:cab,kind:'compra',delta:v.n,event_date:v.d,cost:v.cost,note:v.note}]);
+}
+async function acaoAjusteTacas(cab){
+  const atual=estoqueTacas(cab);
+  const v=await askForm(cabName(cab)+' · Corrigir estoque de taças',[{info:'Informe quantas taças extras existem hoje. Hoje o painel mostra '+atual+'.'},{k:'n',label:'Quantidade real hoje',type:'int',value:Math.max(atual,0),min:0,max:50},{k:'note',label:'Observação (opcional)',type:'text'}],'Salvar');
+  if(!v)return;if(v.n===atual){toast('Nada mudou.');return}
+  await gravar('glass_events',[{cabin_id:cab,kind:'ajuste',delta:v.n-atual,event_date:hojeIso(),note:v.note||'Correção de estoque'}]);
+}
+async function desfazer(tab,e){
+  if(!confirm('Desfazer este registro?'))return;
+  let q=sb.from(tab).delete();q=(tab==='gas_events'&&e.grupo)?q.eq('grupo',e.grupo):q.eq('id',e.id);
+  const {error}=await q;if(error){toast('Não foi possível desfazer.');return}
+  await loadAll();toast('Desfeito.');
+}
+
+function renderEst(){
+  const gc=$('gasCards'),tc=$('tacaCards'),gs=$('gasStats'),hi=$('estHist');[gc,tc,gs,hi].forEach(x=>x.textContent='');
+  if(gasEv===null||glassEv===null){gc.appendChild(el('p','hint','Esta seção ainda não foi ativada no banco de dados.'));return}
+  const hoje=hojeIso();
+  cabins.forEach(c=>{
+    // gás
+    const box=el('div','est');box.appendChild(el('h3',null,c.name));
+    const sts={1:estadoBot(c.id,1),2:estadoBot(c.id,2)};
+    [1,2].forEach(bot=>{
+      const st=sts[bot],b=el('div','bot'),top=el('div','top');
+      top.appendChild(el('b',null,'Botijão '+bot));top.appendChild(el('span','pill '+st.kind,GAS_NOME[st.kind]));b.appendChild(top);
+      if(st.kind==='em_uso'){
+        const pv=previsao(c.id,bot);
+        b.appendChild(el('p',null,'Em uso desde '+br(st.desde)+': '+plDias(diasEntre(st.desde,hoje))+', '+plNoites(pv.usadas)+'.'));
+        const p=el('p',pv.alerta?'alerta':'hint',pv.txt);b.appendChild(p);
+      }else if(st.kind==='vazio'){b.appendChild(el('p',null,'Vazio desde '+br(st.desde)+' ('+plDias(diasEntre(st.desde,hoje))+'). Aguardando recarga.'))}
+      else if(st.kind==='cheio'){b.appendChild(el('p',null,'Recarregado em '+br(st.desde)+(st.ev.cost!=null?' por '+money(st.ev.cost):'')+'. Pronto para quando o outro acabar.'))}
+      else b.appendChild(el('p','hint','Informe a situação de hoje em "Informar situação".'));
+      const a=el('div','acts');
+      const bt=(t,f,cls)=>{const x=el('button',cls||'btn',t);x.type='button';x.onclick=f;a.appendChild(x)};
+      if(st.kind==='em_uso')bt('Acabou',()=>acaoAcabou(c.id,bot));
+      if(st.kind==='vazio')bt('Recarreguei',()=>acaoRecarga(c.id,bot));
+      bt(st.kind==='nada'?'Informar situação':'Corrigir situação',()=>acaoCorrigir(c.id,bot),st.kind==='nada'?'btn':'btn ghost');
+      b.appendChild(a);box.appendChild(b);
+    });
+    if(sts[1].kind==='vazio'&&sts[2].kind==='vazio')box.appendChild(el('div','alerta','Os dois botijões estão vazios: a cabana está sem gás.'));
+    else if((sts[1].kind==='em_uso'&&sts[2].kind==='vazio')||(sts[2].kind==='em_uso'&&sts[1].kind==='vazio'))box.appendChild(el('div','alerta','Sem botijão de reserva: recarregue o vazio antes que o atual acabe.'));
+    gc.appendChild(box);
+    // taças
+    const n=estoqueTacas(c.id),t=el('div','est');t.appendChild(el('h3',null,c.name));
+    t.appendChild(el('div','big'+(n<=0?' neg':''),String(Math.max(n,0))));
+    t.appendChild(el('p','hint',n>0?(n===1?'taça extra disponível':'taças extras disponíveis'):(n===0?'Nenhuma extra. Compre para repor.':(n===-1?'Sem extras, e falta 1 taça':'Sem extras, e faltam '+(-n)+' taças')+' no jogo da cabana.')));
+    const qa=glassEv.filter(e=>e.cabin_id===c.id&&e.kind==='quebra'&&e.event_date.slice(0,4)===hoje.slice(0,4)).reduce((a,e)=>a-e.delta,0);
+    t.appendChild(el('p','hint','Quebradas em '+hoje.slice(0,4)+': '+qa));
+    const ta=el('div','acts');ta.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin-top:8px';
+    [['Quebrou uma',()=>acaoQuebra(c.id),'btn'],['Comprei',()=>acaoCompra(c.id),'btn ghost'],['Corrigir estoque',()=>acaoAjusteTacas(c.id),'btn ghost']].forEach(([x,f,cl])=>{const b=el('button',cl,x);b.type='button';b.onclick=f;ta.appendChild(b)});
+    t.appendChild(ta);tc.appendChild(t);
+  });
+
+  // números do gás
+  const todos=cabins.flatMap(c=>ciclos(c.id));
+  const ano=hoje.slice(0,4),gastoAno=(gasEv||[]).filter(e=>e.kind==='cheio'&&e.cost!=null&&e.event_date.slice(0,4)===ano).reduce((a,e)=>a+Number(e.cost),0);
+  const mes=hoje.slice(0,7),gastoMes=(gasEv||[]).filter(e=>e.kind==='cheio'&&e.cost!=null&&e.event_date.slice(0,7)===mes).reduce((a,e)=>a+Number(e.cost),0);
+  const com=todos.filter(c=>c.noites>0);
+  const medN=com.length?com.reduce((a,c)=>a+c.noites,0)/com.length:null,medR=com.length?com.reduce((a,c)=>a+c.res,0)/com.length:null;
+  const cc=com.map(c=>({...c,custo:c.custo!=null?c.custo:custoMedioRecarga(c.cab)})).filter(c=>c.custo!=null);
+  const porNoite=cc.length?cc.reduce((a,c)=>a+c.custo,0)/cc.reduce((a,c)=>a+c.noites,0):null;
+  const somaRes=cc.reduce((a,c)=>a+c.res,0),porRes=cc.length&&somaRes>0?cc.reduce((a,c)=>a+c.custo,0)/somaRes:null;
+  const k=el('div','kpis');
+  [[medN!=null?medN.toFixed(1).replace('.',','):'—','noites por botijão (média)'],[medR!=null?medR.toFixed(1).replace('.',','):'—','reservas por botijão (média)'],
+   [porRes!=null?money(porRes):'—','custo de gás por reserva'],[porNoite!=null?money(porNoite):'—','custo de gás por noite'],
+   [money(gastoMes),'gasto com recargas neste mês'],[money(gastoAno),'gasto com recargas em '+ano]].forEach(([v,t])=>{const d=el('div','kpi');d.appendChild(el('b',null,v));d.appendChild(el('span',null,t));k.appendChild(d)});
+  gs.appendChild(k);
+  if(!todos.length){gs.appendChild(el('p','hint','Os números aparecem depois que o primeiro botijão acabar com a data de início conhecida. Contamos as noites e reservas do site, Airbnb e Booking (bloqueios seus não contam).'))}
+  else{
+    gs.appendChild(el('p','hint','Por cabana:'));
+    const pc=el('div','tw'),tb=document.createElement('table');tb.innerHTML='<thead><tr><th>Cabana</th><th>Botijões medidos</th><th>Noites por botijão</th><th>Reservas por botijão</th><th>Recarga média</th></tr></thead>';
+    const bd=document.createElement('tbody');
+    cabins.forEach(c=>{const l=ciclos(c.id).filter(x=>x.noites>0);const tr=document.createElement('tr');const cm=custoMedioRecarga(c.id);
+      [c.name,String(l.length),l.length?(l.reduce((a,x)=>a+x.noites,0)/l.length).toFixed(1).replace('.',','):'—',l.length?(l.reduce((a,x)=>a+x.res,0)/l.length).toFixed(1).replace('.',','):'—',cm!=null?money(cm):'—'].forEach(v=>tr.appendChild(el('td',null,v)));bd.appendChild(tr)});
+    tb.appendChild(bd);pc.appendChild(tb);gs.appendChild(pc);
+    gs.appendChild(el('p','hint','Cada botijão que já acabou:'));
+    const w=el('div','tw'),t2=document.createElement('table');t2.innerHTML='<thead><tr><th>Cabana</th><th>Botijão</th><th>Início</th><th>Fim</th><th>Dias</th><th>Noites ocupadas</th><th>Reservas</th><th>Custo da recarga</th></tr></thead>';
+    const b2=document.createElement('tbody');
+    todos.slice().reverse().forEach(x=>{const tr=document.createElement('tr');[cabName(x.cab),String(x.bot),br(x.ini),br(x.fim),String(x.dias),String(x.noites),x.res.toFixed(1).replace('.',','),x.custo!=null?money(x.custo):'—'].forEach(v=>tr.appendChild(el('td',null,v)));b2.appendChild(tr)});
+    t2.appendChild(b2);w.appendChild(t2);gs.appendChild(w);
+    gs.appendChild(el('p','hint','Contamos as noites e reservas do site, Airbnb e Booking (bloqueios seus não contam). Uma reserva dividida entre dois botijões conta em partes.'));
+  }
+
+  // histórico
+  const GK={em_uso:'entrou em uso',vazio:'acabou',cheio:'recarregado'};
+  const it=[...(gasEv||[]).map(e=>({tab:'gas_events',e,quando:e.event_date,criado:e.created_at,txt:'Botijão '+e.bottle+' '+(e.ajuste?'(situação informada: '+GAS_NOME[e.kind].toLowerCase()+')':GK[e.kind])+(e.cost!=null?' · '+money(e.cost):'')})),
+    ...(glassEv||[]).map(e=>({tab:'glass_events',e,quando:e.event_date,criado:e.created_at,txt:e.kind==='quebra'?(-e.delta)+(e.delta===-1?' taça quebrada':' taças quebradas'):e.kind==='compra'?e.delta+(e.delta===1?' taça comprada':' taças compradas')+(e.cost!=null?' · '+money(e.cost):''):'Estoque de taças corrigido ('+(e.delta>0?'+':'')+e.delta+')'}))]
+    .sort((a,b)=>a.quando<b.quando?1:a.quando>b.quando?-1:(a.criado<b.criado?1:-1));
+  // um "acabou" que colocou o outro em uso aparece numa linha só
+  const vistos=new Set(),lin=[];it.forEach(x=>{if(x.tab==='gas_events'&&x.e.grupo){if(vistos.has(x.e.grupo)){const l=lin.find(y=>y.e.grupo===x.e.grupo);if(l)l.txt=x.e.kind==='vazio'?'Botijão '+x.e.bottle+' acabou · '+l.txt:l.txt+' · Botijão '+x.e.bottle+' '+GK[x.e.kind];return}vistos.add(x.e.grupo)}lin.push(x)});
+  if(!lin.length){hi.appendChild(el('p','hint','Nenhum registro ainda.'));return}
+  const w=el('div','tw'),t=document.createElement('table');t.innerHTML='<thead><tr><th>Data</th><th>Cabana</th><th>O que aconteceu</th><th>Obs.</th><th></th></tr></thead>';
+  const bd=document.createElement('tbody');
+  lin.slice(0,40).forEach(x=>{const tr=document.createElement('tr');[br(x.quando),cabName(x.e.cabin_id),x.txt,x.e.note||''].forEach(v=>tr.appendChild(el('td',null,v)));
+    const td=document.createElement('td');const b=el('button','btn danger','Desfazer');b.type='button';b.style.cssText='padding:5px 10px;font-size:13px';b.onclick=()=>desfazer(x.tab,x.e);td.appendChild(b);tr.appendChild(td);bd.appendChild(tr)});
+  t.appendChild(bd);w.appendChild(t);hi.appendChild(w);
+}
+
 /* ---------- abas ---------- */
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
@@ -508,6 +795,7 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   $('tab-sync').classList.toggle('hide',b.dataset.tab!=='sync');
   $('tab-res').classList.toggle('hide',b.dataset.tab!=='res');
   $('tab-msg').classList.toggle('hide',b.dataset.tab!=='msg');
+  $('tab-est').classList.toggle('hide',b.dataset.tab!=='est');
 });
 
 /* ---------- calendário ---------- */
