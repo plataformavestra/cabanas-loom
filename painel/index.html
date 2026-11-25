@@ -88,6 +88,20 @@ th{font-weight:500;color:var(--mut);font-size:12px}
 .dlgbox .acts{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
 .dlgbox .ck{display:flex;gap:8px;align-items:flex-start;font-size:14px;color:var(--ink)}.dlgbox .ck input{width:auto;margin-top:3px}
 @media(max-width:720px){.estgrid{grid-template-columns:1fr}.kpis{grid-template-columns:1fr 1fr}}
+.subnav{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px}
+.subnav button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 16px;font-size:14px}
+.subnav button.on{background:var(--acc);border-color:var(--acc);color:#fff}
+.ovgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.ov{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;text-align:center}
+.ov h3{font-size:19px;margin:4px 0 10px}
+.ov .sec{border-top:1px solid var(--line);padding:12px 4px 4px;margin-top:8px;cursor:pointer;border-radius:10px}
+.ov .sec:hover{background:#f6efe3}
+.ov .sec b{display:block;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);font-weight:600;margin-bottom:8px}
+.ov .row{display:flex;justify-content:center;gap:22px;align-items:flex-end;flex-wrap:wrap;margin:0}
+.ov .it{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:var(--mut);min-width:64px}
+.ov .it span{line-height:1.25}
+.ov .warn{color:var(--bad);font-size:13px;margin-top:8px;font-weight:600}
+@media(max-width:720px){.ovgrid{grid-template-columns:1fr}}
 .hide{display:none!important}
 @media(max-width:720px){.months{grid-template-columns:1fr}.g2,.g3{grid-template-columns:1fr}main{padding:14px 12px 60px}header,nav{padding-left:12px;padding-right:12px}}
 </style>
@@ -231,24 +245,42 @@ th{font-weight:500;color:var(--mut);font-size:12px}
     </div>
 
     <div id="tab-est" class="hide">
-      <div class="card">
-        <h2>Botijões de gás</h2>
-        <div class="hint" style="margin:0 0 12px">Cada cabana tem o Botijão 1 e o Botijão 2. Quando um acabar, clique em <b>Acabou</b>: o outro passa para "em uso" na mesma data. Quando recarregar, clique em <b>Recarreguei</b> e informe o valor.</div>
-        <div id="gasCards" class="estgrid"></div>
+      <div class="subnav" id="estNav">
+        <button type="button" data-sub="geral" class="on">Visão geral</button>
+        <button type="button" data-sub="gas">Botijões</button>
+        <button type="button" data-sub="tac">Taças</button>
       </div>
-      <div class="card">
-        <h2>Números do gás</h2>
-        <div id="gasStats"></div>
+      <div id="est-geral">
+        <div id="estOverview" class="ovgrid"></div>
+        <div class="hint" style="margin:4px 2px 0">Clique nos botijões ou nas taças para ver os detalhes e registrar mudanças.</div>
       </div>
-      <div class="card">
-        <h2>Taças extras</h2>
-        <div class="hint" style="margin:0 0 12px">Quando uma taça quebrar e vocês usarem uma extra, clique em <b>Quebrou uma</b>. Ao comprar, clique em <b>Comprei</b>.</div>
-        <div id="tacaCards" class="estgrid"></div>
+      <div id="est-gas" class="hide">
+        <div class="card">
+          <h2>Botijões de gás</h2>
+          <div class="hint" style="margin:0 0 12px">Cada cabana tem o Botijão 1 e o Botijão 2. Quando um acabar, clique em <b>Acabou</b>: o outro passa para "em uso" na mesma data. Quando recarregar, clique em <b>Recarreguei</b> e informe o valor.</div>
+          <div id="gasCards" class="estgrid"></div>
+        </div>
+        <div class="card">
+          <h2>Números do gás</h2>
+          <div id="gasStats"></div>
+        </div>
+        <div class="card">
+          <h2>Histórico dos botijões</h2>
+          <div class="hint" style="margin:0 0 10px">Registrou algo errado? Use <b>Desfazer</b> na linha.</div>
+          <div id="estHistGas"></div>
+        </div>
       </div>
-      <div class="card">
-        <h2>Histórico do estoque</h2>
-        <div class="hint" style="margin:0 0 10px">Registrou algo errado? Use <b>Desfazer</b> na linha.</div>
-        <div id="estHist"></div>
+      <div id="est-tac" class="hide">
+        <div class="card">
+          <h2>Taças extras</h2>
+          <div class="hint" style="margin:0 0 12px">Quando uma taça quebrar e vocês usarem uma extra, clique em <b>Quebrou uma</b>. Ao comprar, clique em <b>Comprei</b>.</div>
+          <div id="tacaCards" class="estgrid"></div>
+        </div>
+        <div class="card">
+          <h2>Histórico das taças</h2>
+          <div class="hint" style="margin:0 0 10px">Registrou algo errado? Use <b>Desfazer</b> na linha.</div>
+          <div id="estHistTac"></div>
+        </div>
       </div>
     </div>
 
@@ -706,9 +738,82 @@ async function desfazer(tab,e){
   await loadAll();toast('Desfeito.');
 }
 
+/* visão geral ilustrada do estoque */
+let estSub='geral';
+function setEstSub(k){estSub=k;document.querySelectorAll('#estNav button').forEach(b=>b.classList.toggle('on',b.dataset.sub===k));
+  ['geral','gas','tac'].forEach(x=>$('est-'+x).classList.toggle('hide',x!==k));window.scrollTo({top:0,behavior:'smooth'})}
+document.querySelectorAll('#estNav button').forEach(b=>b.onclick=()=>setEstSub(b.dataset.sub));
+const SVGNS='http://www.w3.org/2000/svg';
+function svgEl(html,w,h,label){const d=document.createElement('div');d.innerHTML='<svg xmlns="'+SVGNS+'" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'" role="img" aria-label="'+label+'">'+html+'</svg>';return d.firstChild}
+function svgCabana(nome){
+  return svgEl('<rect x="8" y="78" width="164" height="6" rx="3" fill="#cdbfa8"/>'+
+   '<rect x="26" y="40" width="128" height="40" rx="3" fill="#b07a45"/>'+
+   '<g stroke="#8a5a2b" stroke-width="1.4" opacity=".7"><line x1="26" y1="50" x2="154" y2="50"/><line x1="26" y1="60" x2="154" y2="60"/><line x1="26" y1="70" x2="154" y2="70"/></g>'+
+   '<path d="M18 42 L90 12 L162 42 Z" fill="#6f7f52"/><rect x="18" y="40" width="144" height="4" fill="#55643c"/>'+
+   '<rect x="80" y="54" width="20" height="26" rx="2" fill="#5c3d1e"/><circle cx="96" cy="68" r="1.4" fill="#e9c98f"/>'+
+   '<rect x="40" y="52" width="26" height="16" rx="2" fill="#f3e2b5" stroke="#5c3d1e" stroke-width="2"/><rect x="114" y="52" width="26" height="16" rx="2" fill="#f3e2b5" stroke="#5c3d1e" stroke-width="2"/>'+
+   '<rect x="128" y="16" width="8" height="18" fill="#7a6a58"/>',180,88,nome)}
+function svgBotijao(kind,nivel){
+  // nivel: 0..1 (quanto de gás ainda tem)
+  const cor=kind==='vazio'?'#b3452f':kind==='nada'?'#9a8b78':'#3f7d4e';
+  const corpoY=14,corpoH=56,h=Math.round(corpoH*Math.max(0,Math.min(1,nivel)));
+  const fill=kind==='cheio'?'#5d9bd3':kind==='em_uso'?'#6fb37f':'transparent';
+  const id='c'+Math.random().toString(36).slice(2,8);
+  return svgEl('<defs><clipPath id="'+id+'"><rect x="7" y="'+corpoY+'" width="34" height="'+corpoH+'" rx="12"/></clipPath></defs>'+
+   '<rect x="17" y="2" width="14" height="6" rx="2" fill="#7a6a58"/><rect x="13" y="7" width="22" height="8" rx="3" fill="none" stroke="'+cor+'" stroke-width="3"/>'+
+   '<rect x="7" y="'+corpoY+'" width="34" height="'+corpoH+'" rx="12" fill="#fff"/>'+
+   (h>0?'<rect clip-path="url(#'+id+')" x="7" y="'+(corpoY+corpoH-h)+'" width="34" height="'+h+'" fill="'+fill+'"/>':'')+
+   '<rect x="7" y="'+corpoY+'" width="34" height="'+corpoH+'" rx="12" fill="none" stroke="'+cor+'" stroke-width="3"'+(kind==='nada'?' stroke-dasharray="4 3"':'')+'/>'+
+   (kind==='nada'?'<text x="24" y="48" text-anchor="middle" font-size="18" fill="#9a8b78" font-family="Georgia">?</text>':'')+
+   (kind==='vazio'?'<text x="24" y="50" text-anchor="middle" font-size="16" fill="#b3452f" font-weight="700" font-family="system-ui">!</text>':'')+
+   '<rect x="11" y="70" width="26" height="6" rx="2" fill="#7a6a58"/>',48,78,'Botijão')}
+function svgTaca(ok){
+  const c=ok?'#8a5a2b':'#b9ab98';
+  return svgEl(ok
+   ?'<path d="M8 4 H32 Q33 22 20 28 Q7 22 8 4 Z" fill="#f6e1e6" stroke="'+c+'" stroke-width="2.2"/><path d="M10 12 H30 Q29 22 20 26 Q11 22 10 12Z" fill="#b5475f" opacity=".75"/><line x1="20" y1="28" x2="20" y2="44" stroke="'+c+'" stroke-width="2.2"/><line x1="12" y1="46" x2="28" y2="46" stroke="'+c+'" stroke-width="2.6" stroke-linecap="round"/>'
+   :'<path d="M8 4 L14 4 L12 10 L17 13 L15 20 Q11 18 8 4 Z" fill="#f1ece4" stroke="'+c+'" stroke-width="2"/><path d="M26 6 L32 4 Q32 18 24 26 L22 18 L27 13 Z" fill="#f1ece4" stroke="'+c+'" stroke-width="2"/><line x1="20" y1="30" x2="20" y2="44" stroke="'+c+'" stroke-width="2.2"/><line x1="12" y1="46" x2="28" y2="46" stroke="'+c+'" stroke-width="2.6" stroke-linecap="round"/><path d="M15 36 L18 34 M25 37 L22 35" stroke="'+c+'" stroke-width="1.6"/>',40,50,ok?'Taça inteira':'Taça quebrada')}
+function nivelBot(cab,bot,st){
+  if(st.kind==='cheio')return 1;if(st.kind!=='em_uso')return 0;
+  const pv=previsao(cab,bot);if(!pv||!pv.media)return .5;
+  return Math.max(.08,Math.min(.95,1-pv.usadas/pv.media));
+}
+function renderOverview(){
+  const ov=$('estOverview');
+  cabins.forEach(c=>{
+    const card=el('div','ov');card.appendChild(svgCabana(c.name));card.appendChild(el('h3',null,c.name));
+    // gás
+    const sg=el('div','sec');sg.title='Ver detalhes dos botijões';sg.onclick=()=>setEstSub('gas');sg.appendChild(el('b',null,'Gás'));
+    const rg=el('div','row');const sts={1:estadoBot(c.id,1),2:estadoBot(c.id,2)};
+    [1,2].forEach(bot=>{const st=sts[bot],it=el('div','it');const nv=nivelBot(c.id,bot,st);it.appendChild(svgBotijao(st.kind,nv));
+      let t='Botijão '+bot+'\n';
+      if(st.kind==='em_uso'){const pv=previsao(c.id,bot);t+=(pv&&pv.media?'Em uso · ~'+Math.round(nv*100)+'%':'Em uso')}
+      else t+=GAS_NOME[st.kind];
+      const sp=el('span',null,t);sp.style.whiteSpace='pre-line';if(st.kind==='vazio')sp.style.color='var(--bad)';it.appendChild(sp);rg.appendChild(it)});
+    sg.appendChild(rg);
+    let aviso='';
+    if(sts[1].kind==='vazio'&&sts[2].kind==='vazio')aviso='Sem gás nesta cabana';
+    else if(sts[1].kind==='vazio'||sts[2].kind==='vazio')aviso='Sem botijão de reserva';
+    else{[1,2].forEach(b=>{if(sts[b].kind==='em_uso'){const pv=previsao(c.id,b);if(pv&&pv.alerta)aviso='Botijão '+b+' perto de acabar'}})}
+    if(sts[1].kind==='nada'||sts[2].kind==='nada')aviso=aviso||'Informe a situação dos botijões';
+    if(aviso)sg.appendChild(el('div','warn',aviso));
+    card.appendChild(sg);
+    // taças
+    const st2=el('div','sec');st2.title='Ver detalhes das taças';st2.onclick=()=>setEstSub('tac');st2.appendChild(el('b',null,'Taças extras'));
+    const n=estoqueTacas(c.id),inteiras=Math.max(n,0),quebradas=Math.max(2-inteiras,0)+(n<0?-n:0);
+    const rt=el('div','row');rt.style.gap='10px';
+    for(let i=0;i<inteiras;i++)rt.appendChild(svgTaca(true));
+    for(let i=0;i<Math.min(quebradas,6);i++)rt.appendChild(svgTaca(false));
+    st2.appendChild(rt);
+    st2.appendChild(el('div','hint',inteiras>0?inteiras+(inteiras===1?' extra disponível':' extras disponíveis')+(inteiras<2?' · repor '+(2-inteiras):''):'Repor 2 taças extras'+(n<0?' (e faltam '+(-n)+' no jogo)':'')));
+    if(n<=0)st2.appendChild(el('div','warn','Nenhuma taça extra'));
+    card.appendChild(st2);
+    ov.appendChild(card);
+  });
+}
 function renderEst(){
-  const gc=$('gasCards'),tc=$('tacaCards'),gs=$('gasStats'),hi=$('estHist');[gc,tc,gs,hi].forEach(x=>x.textContent='');
-  if(gasEv===null||glassEv===null){gc.appendChild(el('p','hint','Esta seção ainda não foi ativada no banco de dados.'));return}
+  const gc=$('gasCards'),tc=$('tacaCards'),gs=$('gasStats'),hG=$('estHistGas'),hT=$('estHistTac'),ov=$('estOverview');[gc,tc,gs,hG,hT,ov].forEach(x=>x.textContent='');
+  if(gasEv===null||glassEv===null){ov.appendChild(el('p','hint','Esta seção ainda não foi ativada no banco de dados.'));return}
+  renderOverview();
   const hoje=hojeIso();
   cabins.forEach(c=>{
     // gás
@@ -782,12 +887,15 @@ function renderEst(){
     .sort((a,b)=>a.quando<b.quando?1:a.quando>b.quando?-1:(a.criado<b.criado?1:-1));
   // um "acabou" que colocou o outro em uso aparece numa linha só
   const vistos=new Set(),lin=[];it.forEach(x=>{if(x.tab==='gas_events'&&x.e.grupo){if(vistos.has(x.e.grupo)){const l=lin.find(y=>y.e.grupo===x.e.grupo);if(l)l.txt=x.e.kind==='vazio'?'Botijão '+x.e.bottle+' acabou · '+l.txt:l.txt+' · Botijão '+x.e.bottle+' '+GK[x.e.kind];return}vistos.add(x.e.grupo)}lin.push(x)});
-  if(!lin.length){hi.appendChild(el('p','hint','Nenhum registro ainda.'));return}
+  [[hG,'gas_events'],[hT,'glass_events']].forEach(([hi,tab])=>{
+  const ls=lin.filter(x=>x.tab===tab);
+  if(!ls.length){hi.appendChild(el('p','hint','Nenhum registro ainda.'));return}
   const w=el('div','tw'),t=document.createElement('table');t.innerHTML='<thead><tr><th>Data</th><th>Cabana</th><th>O que aconteceu</th><th>Obs.</th><th></th></tr></thead>';
   const bd=document.createElement('tbody');
-  lin.slice(0,40).forEach(x=>{const tr=document.createElement('tr');[br(x.quando),cabName(x.e.cabin_id),x.txt,x.e.note||''].forEach(v=>tr.appendChild(el('td',null,v)));
+  ls.slice(0,40).forEach(x=>{const tr=document.createElement('tr');[br(x.quando),cabName(x.e.cabin_id),x.txt,x.e.note||''].forEach(v=>tr.appendChild(el('td',null,v)));
     const td=document.createElement('td');const b=el('button','btn danger','Desfazer');b.type='button';b.style.cssText='padding:5px 10px;font-size:13px';b.onclick=()=>desfazer(x.tab,x.e);td.appendChild(b);tr.appendChild(td);bd.appendChild(tr)});
   t.appendChild(bd);w.appendChild(t);hi.appendChild(w);
+  });
 }
 
 /* ---------- abas ---------- */
