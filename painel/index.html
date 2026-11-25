@@ -7,7 +7,7 @@
 <title>Painel · Cabanas Loom</title>
 <style>
 :root{--bg:#f4efe6;--card:#fffdf8;--ink:#2a2118;--mut:#7a6a58;--line:#e2d8c8;--acc:#8a5a2b;--acc2:#6b4420;--ok:#3f7d4e;--bad:#b3452f;
---manual:#c98a3d;--airbnb:#d9534f;--booking:#2f6fb3;--site:#3f7d4e}
+--manual:#c98a3d;--reserva:#7a4fa0;--airbnb:#d9534f;--booking:#2f6fb3;--site:#3f7d4e}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 h1,h2,h3{font-family:Georgia,'Times New Roman',serif;font-weight:500;margin:0}
@@ -47,7 +47,7 @@ main{padding:18px 22px 60px;max-width:1100px;margin:0 auto}
 .day.empty{border:0;background:transparent;cursor:default}
 .day.sel{outline:2px solid var(--acc);background:#f6e9d6}
 .day .b{position:absolute;left:3px;right:3px;bottom:3px;height:5px;border-radius:3px}
-.day .b.manual{background:var(--manual)}.day .b.airbnb{background:var(--airbnb)}.day .b.booking{background:var(--booking)}.day .b.site{background:var(--site)}
+.day .b.manual{background:var(--manual)}.day .b.reserva{background:var(--reserva)}.day .b.airbnb{background:var(--airbnb)}.day .b.booking{background:var(--booking)}.day .b.site{background:var(--site)}
 .day.occ{background:#f9f4ea}
 .leg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin:8px 0}
 .leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
@@ -58,7 +58,7 @@ table{width:100%;border-collapse:collapse;font-size:14px;min-width:480px}
 th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
 th{font-weight:500;color:var(--mut);font-size:12px}
 .tag{display:inline-block;padding:1px 8px;border-radius:10px;color:#fff;font-size:12px}
-.tag.manual{background:var(--manual)}.tag.airbnb{background:var(--airbnb)}.tag.booking{background:var(--booking)}.tag.site{background:var(--site)}
+.tag.manual{background:var(--manual)}.tag.reserva{background:var(--reserva)}.tag.airbnb{background:var(--airbnb)}.tag.booking{background:var(--booking)}.tag.site{background:var(--site)}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .hint{color:var(--mut);font-size:13px;margin-top:6px}
@@ -129,7 +129,8 @@ th{font-weight:500;color:var(--mut);font-size:12px}
         </div>
         <div class="months" id="months"></div>
         <div class="leg">
-          <span><i style="background:var(--manual)"></i>Bloqueio seu</span>
+          <span><i style="background:var(--reserva)"></i>Reserva lançada por você</span>
+          <span><i style="background:var(--manual)"></i>Bloqueio seu (sem hóspede)</span>
           <span><i style="background:var(--airbnb)"></i>Airbnb</span>
           <span><i style="background:var(--booking)"></i>Booking</span>
           <span><i style="background:var(--site)"></i>Site</span>
@@ -138,13 +139,15 @@ th{font-weight:500;color:var(--mut);font-size:12px}
         <div class="selbar" id="selbar" style="display:none">
           <div><label>Entrada (check-in)</label><input id="selIn" readonly></div>
           <div><label>Saída (check-out)</label><input id="selOut" readonly></div>
-          <div style="flex:2"><label>Observação (só você vê)</label><input id="selNote" placeholder="Ex.: manutenção, hóspede por telefone"></div>
-          <button class="btn" id="doBlock">Bloquear</button>
+          <div><label>Tipo</label><select id="selTipo"><option value="reserva">Reserva (teve hóspede)</option><option value="manual">Bloqueio (sem hóspede)</option></select></div>
+          <div style="flex:2"><label>Observação (só você vê)</label><input id="selNote" placeholder="Ex.: hóspede por telefone, manutenção"></div>
+          <button class="btn" id="doBlock">Salvar datas</button>
           <button class="btn ghost" id="clearSel">Cancelar</button>
         </div>
       </div>
       <div class="card">
         <h2>Bloqueios e reservas</h2>
+        <label class="hint" style="display:flex;gap:8px;align-items:center;margin:0 0 8px;color:var(--ink)"><input type="checkbox" id="showPast" style="width:auto"> Mostrar também as datas passadas</label>
         <div class="tw"><table>
           <thead><tr><th>Cabana</th><th>Check-in</th><th>Check-out</th><th>Origem</th><th>Obs.</th><th></th></tr></thead>
           <tbody id="blocks"></tbody>
@@ -274,7 +277,7 @@ const SB_KEY='sb_publishable_NmufNWN4WlGBLfXi9eJ0UA_7IKtpy5X';
 const sb=window.__mockSb||supabase.createClient(SB_URL,SB_KEY);
 const $=id=>document.getElementById(id);
 const MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
-const ORIGEM={manual:'Bloqueio seu',airbnb:'Airbnb',booking:'Booking',site:'Site'};
+const ORIGEM={reserva:'Reserva (lançada por você)',manual:'Bloqueio seu',airbnb:'Airbnb',booking:'Booking',site:'Site'};
 let templates=null,settings={},msgDirty=false,lastField=null;
 let gasEv=null,glassEv=null;
 let cabins=[],blocks=[],rules=[],sources=[],feeds=[],requests=null,view=new Date(),selA=null,selB=null;
@@ -337,7 +340,7 @@ function fmtPhone(d){d=String(d).replace(/\D/g,'');if(d.length===11)return '('+d
 function cabName(id){const c=cabins.find(x=>x.id===id);return c?c.name:id}
 function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
 function conflictOf(r){return blocks.filter(b=>b.cabin_id===r.cabin_id&&b.start_date<r.end_date&&b.end_date>r.start_date)}
-const SRC_NOME={manual:'bloqueio seu',airbnb:'Airbnb',booking:'Booking',site:'site'};
+const SRC_NOME={reserva:'reserva lançada por você',manual:'bloqueio seu',airbnb:'Airbnb',booking:'Booking',site:'site'};
 const money=v=>Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const dtbr=v=>new Date(v).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
 const SIT={aprovada:'Aprovada',recusada:'Recusada',confirmada:'Paga e confirmada',expirada:'Expirou sem pagar',cancelada:'Cancelada',pago_conflito:'PAGO, mas as datas estavam ocupadas: devolva o valor no Asaas',aguardando_pagamento:'Aguardando pagamento',pendente:'Pendente'};
@@ -554,7 +557,7 @@ $('msgWaSave').onclick=async()=>{
 /* ---------- estoque: botijões de gás e taças extras ---------- */
 const GAS_NOME={em_uso:'Em uso',cheio:'Cheio, de reserva',vazio:'Vazio',nada:'Sem informação'};
 const hojeIso=()=>iso(new Date());
-const nOcup=b=>b.source!=='manual'; // conta só reservas (site, Airbnb, Booking); bloqueios seus não contam
+const nOcup=b=>b.source!=='manual'; // conta reservas (site, Airbnb, Booking e as lançadas por você); bloqueios sem hóspede não contam
 const plDias=n=>n+(n===1?' dia':' dias'),plNoites=n=>n+(n===1?' noite ocupada':' noites ocupadas');
 function diasEntre(a,b){return Math.round((fromIso(b)-fromIso(a))/86400000)}
 function noitesOcupadas(cab,a,b){ // datas (noites) ocupadas no intervalo [a,b)
@@ -756,7 +759,7 @@ function renderEst(){
    [porRes!=null?money(porRes):'—','custo de gás por reserva'],[porNoite!=null?money(porNoite):'—','custo de gás por noite'],
    [money(gastoMes),'gasto com recargas neste mês'],[money(gastoAno),'gasto com recargas em '+ano]].forEach(([v,t])=>{const d=el('div','kpi');d.appendChild(el('b',null,v));d.appendChild(el('span',null,t));k.appendChild(d)});
   gs.appendChild(k);
-  if(!todos.length){gs.appendChild(el('p','hint','Os números aparecem depois que o primeiro botijão acabar com a data de início conhecida. Contamos as noites e reservas do site, Airbnb e Booking (bloqueios seus não contam).'))}
+  if(!todos.length){gs.appendChild(el('p','hint','Os números aparecem depois que o primeiro botijão acabar com a data de início conhecida. Contamos as noites das reservas do site, Airbnb, Booking e das reservas lançadas por você no calendário (bloqueios sem hóspede não contam).'))}
   else{
     gs.appendChild(el('p','hint','Por cabana:'));
     const pc=el('div','tw'),tb=document.createElement('table');tb.innerHTML='<thead><tr><th>Cabana</th><th>Botijões medidos</th><th>Noites por botijão</th><th>Reservas por botijão</th><th>Recarga média</th></tr></thead>';
@@ -769,7 +772,7 @@ function renderEst(){
     const b2=document.createElement('tbody');
     todos.slice().reverse().forEach(x=>{const tr=document.createElement('tr');[cabName(x.cab),String(x.bot),br(x.ini),br(x.fim),String(x.dias),String(x.noites),x.res.toFixed(1).replace('.',','),x.custo!=null?money(x.custo):'—'].forEach(v=>tr.appendChild(el('td',null,v)));b2.appendChild(tr)});
     t2.appendChild(b2);w.appendChild(t2);gs.appendChild(w);
-    gs.appendChild(el('p','hint','Contamos as noites e reservas do site, Airbnb e Booking (bloqueios seus não contam). Uma reserva dividida entre dois botijões conta em partes.'));
+    gs.appendChild(el('p','hint','Contamos as noites das reservas do site, Airbnb, Booking e das reservas lançadas por você no calendário (bloqueios sem hóspede não contam). Uma reserva dividida entre dois botijões conta em partes.'));
   }
 
   // histórico
@@ -849,22 +852,25 @@ $('doBlock').onclick=async()=>{
   const f=cabinFilter();if(f==='all'||!selA)return;
   const last=selB||selA,end=iso(addDays(fromIso(last),1));
   const clash=blocks.some(b=>b.cabin_id===f&&b.start_date<end&&b.end_date>selA);
-  if(clash&&!confirm('Já existe reserva ou bloqueio nessas datas. Bloquear mesmo assim?'))return;
+  if(clash&&!confirm('Já existe reserva ou bloqueio nessas datas. Salvar mesmo assim?'))return;
   $('doBlock').disabled=true;
-  const {error}=await sb.from('calendar_blocks').insert({cabin_id:f,start_date:selA,end_date:end,source:'manual',note:$('selNote').value.trim()||null});
+  const tipo=$('selTipo').value==='manual'?'manual':'reserva';
+  const {error}=await sb.from('calendar_blocks').insert({cabin_id:f,start_date:selA,end_date:end,source:tipo,note:$('selNote').value.trim()||null});
   if(error){toast('Não foi possível salvar.');$('doBlock').disabled=false;return}
-  $('selNote').value='';selA=selB=null;updateSel();toast('Datas bloqueadas.');await loadAll();
+  $('selNote').value='';selA=selB=null;updateSel();toast(tipo==='reserva'?'Reserva registrada.':'Datas bloqueadas.');await loadAll();
 };
 $('prev').onclick=()=>{view=new Date(view.getFullYear(),view.getMonth()-1,1);renderCal()};
 $('next').onclick=()=>{view=new Date(view.getFullYear(),view.getMonth()+1,1);renderCal()};
 $('today').onclick=()=>{const n=new Date();view=new Date(n.getFullYear(),n.getMonth(),1);renderCal()};
 $('calCabin').onchange=()=>{selA=selB=null;updateSel();renderCal();renderBlocks()};
+$('showPast').onchange=()=>renderBlocks();
 
 function renderBlocks(){
   const f=cabinFilter(),tb=$('blocks');tb.innerHTML='';
   const hojeIso=iso(new Date());
-  const list=blocks.filter(b=>(f==='all'||b.cabin_id===f)&&b.end_date>=hojeIso);
-  $('blocksEmpty').textContent=list.length?'':'Nenhum bloqueio ou reserva futura.';
+  const past=$('showPast').checked;
+  const list=blocks.filter(b=>(f==='all'||b.cabin_id===f)&&(past||b.end_date>=hojeIso));if(past)list.sort((a,b)=>a.start_date<b.start_date?1:-1);
+  $('blocksEmpty').textContent=list.length?'':(past?'Nenhum bloqueio ou reserva.':'Nenhum bloqueio ou reserva futura.');
   const nome=id=>(cabins.find(c=>c.id===id)||{}).name||id;
   list.forEach(b=>{
     const tr=document.createElement('tr');
@@ -873,8 +879,13 @@ function renderBlocks(){
     const tdO=document.createElement('td');const tag=document.createElement('span');tag.className='tag '+b.source;tag.textContent=ORIGEM[b.source]||b.source;tdO.appendChild(tag);tr.appendChild(tdO);
     const tdN=document.createElement('td');tdN.textContent=b.note||'';tr.appendChild(tdN);
     const tdX=document.createElement('td');
-    if(b.source==='manual'){const x=document.createElement('button');x.className='btn danger';x.textContent='Remover';
-      x.onclick=async()=>{if(!confirm('Remover este bloqueio?'))return;const {error}=await sb.from('calendar_blocks').delete().eq('id',b.id);if(error){toast('Não foi possível remover.');return}toast('Bloqueio removido.');loadAll()};
+    if(b.source==='manual'||b.source==='reserva'){
+      const outro=b.source==='manual'?'reserva':'manual';const t=document.createElement('button');t.className='btn ghost';t.style.marginRight='6px';
+      t.textContent=outro==='reserva'?'Marcar como reserva':'Marcar como bloqueio';
+      t.onclick=async()=>{const {error}=await sb.from('calendar_blocks').update({source:outro}).eq('id',b.id);if(error){toast('Não foi possível alterar.');return}toast('Alterado.');loadAll()};
+      tdX.appendChild(t);
+      const x=document.createElement('button');x.className='btn danger';x.textContent='Remover';
+      x.onclick=async()=>{if(!confirm('Remover estas datas?'))return;const {error}=await sb.from('calendar_blocks').delete().eq('id',b.id);if(error){toast('Não foi possível remover.');return}toast('Removido.');loadAll()};
       tdX.appendChild(x)}
     tr.appendChild(tdX);tb.appendChild(tr);
   });
