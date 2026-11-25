@@ -30,8 +30,8 @@ a.btn{text-decoration:none;display:inline-block}
 header{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:14px 22px;border-bottom:1px solid var(--line);background:var(--card);position:sticky;top:0;z-index:5}
 header h1{font-size:20px}
 header small{color:var(--mut);margin-right:12px}
-nav{display:flex;gap:6px;padding:12px 22px 0}
-nav button{background:transparent;border:0;border-bottom:2px solid transparent;padding:8px 12px;color:var(--mut)}
+nav{display:flex;gap:2px;padding:12px 22px 0;overflow-x:auto;scrollbar-width:thin}
+nav button{background:transparent;border:0;border-bottom:2px solid transparent;padding:8px 10px;color:var(--mut);white-space:nowrap;flex:none}
 nav button.on{color:var(--ink);border-color:var(--acc)}
 main{padding:18px 22px 60px;max-width:1100px;margin:0 auto}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
@@ -124,6 +124,16 @@ th{font-weight:500;color:var(--mut);font-size:12px}
 .fch-line{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
 .fch-line .neg{color:var(--bad)}
 .fch-line.total{font-size:18px;font-weight:700;border-bottom:0;border-top:2px solid var(--ink);margin-top:6px;padding-top:14px}
+.dre-sum{background:#2B2420;color:#F7F3EC;border-radius:10px;padding:26px 28px}
+.dre-sum .eb{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#D8B99A;font-weight:600}
+.dre-sum h2{color:#F7F3EC;font-size:20px;margin:4px 0 12px}.dre-sum .ml{font-family:system-ui,sans-serif;font-size:14px;color:#C9BEA9}
+.dre-sum .sl{display:flex;justify-content:space-between;gap:10px;align-items:baseline;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.12);font-size:15px}
+.dre-sum .sl .lb{color:#D9D0C2}.dre-sum .sl .vl{font-variant-numeric:tabular-nums;font-weight:600;font-size:16px}
+.dre-sum .sl.sub{padding:6px 0;border-bottom:none}.dre-sum .sl.sub .lb{padding-left:16px;font-size:13px;color:#C2B7A3}.dre-sum .sl.sub .vl{font-size:13.5px;font-weight:500;color:#DCD3C4}
+.dre-sum .sl.subt .lb{font-weight:600;color:#F7F3EC}
+.dre-sum .sl.tot{margin-top:6px;padding-top:18px;border-top:1.5px solid rgba(255,255,255,.28);border-bottom:none}.dre-sum .sl.tot .lb{font-family:Georgia,serif;font-size:19px;color:#F7F3EC}.dre-sum .sl.tot .vl{font-family:Georgia,serif;font-size:24px}
+.dre-sum .vl.pos{color:#9FCB9F}.dre-sum .vl.neg{color:#E3968B}
+.dre-sum .brk{font-size:12px;color:#B9AE9D;margin:-2px 0 4px}.dre-sum .mn{margin-top:8px;font-size:12.5px;color:#B9AE9D;text-align:right}
 .hide{display:none!important}
 @media(max-width:720px){.months{grid-template-columns:1fr}.g2,.g3{grid-template-columns:1fr}main{padding:14px 12px 60px}header,nav{padding-left:12px;padding-right:12px}}
 </style>
@@ -155,6 +165,8 @@ th{font-weight:500;color:var(--mut);font-size:12px}
     <button data-tab="msg">Mensagens automáticas</button>
     <button data-tab="est">Estoque</button>
     <button data-tab="fch">Fechamentos</button>
+    <button data-tab="dreg">Gerador de DRE</button>
+    <button data-tab="dre">DRE</button>
   </nav>
   <main>
     <div id="tab-ini"><div id="iniBox"></div></div>
@@ -362,8 +374,53 @@ th{font-weight:500;color:var(--mut);font-size:12px}
         <h2>Resumo combinado: valor a pagar ao host</h2>
         <div id="fchSum"></div>
       </div>
-      <button class="btn" id="fchPdf" type="button" style="padding:12px 20px">Gerar PDF para Host</button>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn" id="fchPdf" type="button" style="padding:12px 20px">Gerar PDF para Host</button>
+        <button class="btn ghost" id="fchDre" type="button" style="padding:12px 20px">Enviar para DRE</button>
+      </div>
     </div>
+
+    <div id="tab-dreg" class="hide">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap">
+          <div><h2>Gerador de DRE</h2><div class="hint" style="margin:4px 0 0">Demonstração de resultado das cabanas: receita, custos e resultado líquido do mês.</div></div>
+          <div class="bar" style="margin:0"><label style="margin:0">Referente a</label><select id="gdMes" style="width:auto"></select><select id="gdAno" style="width:auto"></select></div>
+        </div>
+        <p class="hint" id="gdStatus" style="margin-top:10px"></p>
+      </div>
+      <div id="gdBox">
+        <div class="card">
+          <h2>Fechamentos enviados</h2>
+          <div class="hint" style="margin:0 0 10px">Marque os que entram neste mês. Os do mês escolhido já vêm marcados. Fechamentos que já fazem parte do DRE fixo de outro mês não aparecem.</div>
+          <div id="gdFech"></div>
+        </div>
+        <div class="card">
+          <h2>Upload de fechamento em PDF (antigos)</h2>
+          <div class="hint" style="margin:0 0 10px">Para fechamentos gerados antes do painel: o PDF é lido e os valores entram nas tabelas abaixo.</div>
+          <label class="btn ghost" style="display:inline-block;cursor:pointer">Escolher arquivo PDF<input type="file" id="gdFile" accept="application/pdf" style="display:none"></label>
+          <p class="hint" id="gdParse"></p>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px"><h2 style="margin:0">Outras receitas</h2><button class="btn ghost" id="gdAddRev" type="button">+ Adicionar período manualmente</button></div>
+          <div id="gdRevs"></div>
+        </div>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px"><h2 style="margin:0">Custos e despesas do mês</h2><button class="btn ghost" id="gdAddCost" type="button">+ Adicionar custo</button></div>
+          <div id="gdAuto"></div>
+          <p class="hint" style="margin:12px 0 6px">Lançados por você (custos fixos e outros):</p>
+          <div id="gdCosts"></div>
+        </div>
+        <div id="gdSum" style="margin-bottom:16px"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:flex-end">
+          <button class="btn danger" id="gdLimpar" type="button">Limpar mês</button>
+          <button class="btn ghost" id="gdRasc" type="button">Salvar rascunho</button>
+          <button class="btn ghost" id="gdPdf" type="button">Gerar PDF</button>
+          <button class="btn" id="gdFixo" type="button">Criar DRE fixo</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-dre" class="hide"><div id="dreBox"></div></div>
 
     <div id="tab-sync" class="hide">
       <div class="card">
@@ -437,10 +494,12 @@ async function loadAll(){
   requests=rq.error?null:(rq.data||[]);
   const mt=await sb.from('message_templates').select('*');templates=mt.error?null:(mt.data||[]);
   const st=await sb.from('app_settings').select('*');settings={};(st.data||[]).forEach(x=>{settings[x.key]=x.value});
+  const clq=await sb.from('closings').select('*').order('period_start');closings=clq.error?null:(clq.data||[]);
+  const drq=await sb.from('dre_reports').select('*').order('month');dreReports=drq.error?null:(drq.data||[]);
   const hd=await sb.from('holidays').select('*').order('day');holidays=hd.error?null:(hd.data||[]);
   const ge=await sb.from('gas_events').select('*').order('event_date').order('created_at');gasEv=ge.error?null:(ge.data||[]);
   const gl=await sb.from('glass_events').select('*').order('event_date').order('created_at');glassEv=gl.error?null:(gl.data||[]);
-  fillCabinSelects();renderCal();renderBlocks();loadCabinForm();renderRules();renderSync();renderRes();renderMsg();renderEst();renderIni();renderPreview();renderFer();renderFch();
+  fillCabinSelects();renderCal();renderBlocks();loadCabinForm();renderRules();renderSync();renderRes();renderMsg();renderEst();renderIni();renderPreview();renderFer();renderFch();renderGd();renderDre();
 }
 function fillCabinSelects(){
   const keep1=$('calCabin').value,keep2=$('prCabin').value;
@@ -1201,6 +1260,221 @@ $('fchPdf').onclick=()=>{
 };
 window.addEventListener('beforeunload',e=>{const tem=FCH.ex.length||Object.values(FCH.res).some(l=>l.length);if(tem){e.preventDefault();e.returnValue=''}});
 
+/* ---------- DRE: gerador (a partir dos fechamentos enviados) e DREs fixos por mês ---------- */
+const DRE_CATS=["Limpezas","Comissão","Investimento","Manutenções","Luz","Gás","Internet","Suzana","Arrendamento","Financiamento","Outros"];
+const DRE_TIPO={"Limpezas":"variavel","Comissão":"variavel"};
+const MESES_UP=MESES.map(m=>m[0].toUpperCase()+m.slice(1));
+let closings=null,dreReports=null;
+const GD={month:null,incl:new Set(),revs:[],costs:[],dirty:false,vistos:new Set()};let gdSeq=1;
+const dMoney=n=>(n<0?'-':'')+'R$ '+Math.abs(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const parseBRn=s=>parseFloat(String(s).replace(/\./g,'').replace(',','.'))||0;
+const mesNome=m=>{const [y,mm]=m.split('-');return MESES_UP[+mm-1]+' / '+y};
+
+/* --- Fechamentos: enviar para o DRE --- */
+async function fchEnviarDre(){
+  const P=fchPeriodo();if(!P){toast('Para enviar ao DRE, informe as datas de início e fim do fechamento.');return}
+  if(closings===null){toast('O DRE ainda não foi ativado no banco de dados.');return}
+  const t=fchTot();if(!t.qtd&&!FCH.ex.length){toast('Não há reservas nem custos neste fechamento.');return}
+  const pend=cabins.flatMap(c=>FCH.res[c.id]||[]).filter(r=>r.canal&&(!r.nome||!r.valor)).length;
+  if(pend&&!confirm(pend+(pend===1?' reserva está':' reservas estão')+' sem nome ou valor. Enviar para o DRE mesmo assim?'))return;
+  const igual=closings.find(c=>c.period_start===P.a&&c.period_end===P.b);
+  if(igual){if(igual.dre_month){toast('Esse período já faz parte do DRE fixo de '+mesNome(igual.dre_month.slice(0,7))+'.');return}
+    if(!confirm('Já existe um fechamento enviado para '+br(P.a)+' a '+br(P.b)+'. Substituir pelo atual?'))return}
+  const data={cfg:t.cfg,cabNomes:Object.fromEntries(cabins.map(c=>[c.id,c.name])),
+    res:Object.fromEntries(cabins.map(c=>[c.id,(FCH.res[c.id]||[]).map(r=>({nome:r.nome||'',valor:fchNum(r.valor),canal:r.canal||null,ini:r.ini||null,fim:r.fim||null}))])),
+    ex:FCH.ex.map(e=>({descricao:e.descricao||'',valor:fchNum(e.valor)})),
+    tot:{porCab:t.porCab,fat:t.fat,qtd:t.qtd,limp:t.limp,saldo:t.saldo,com:t.com,ex:t.ex,total:t.total}};
+  const q=igual?sb.from('closings').update({data,created_at:new Date().toISOString()}).eq('id',igual.id):sb.from('closings').insert({period_start:P.a,period_end:P.b,data});
+  const {error}=await q;if(error){toast('Não foi possível enviar.');return}
+  toast('Fechamento de '+br(P.a)+' a '+br(P.b)+' enviado para o Gerador de DRE.');await loadAll();
+}
+
+/* --- Gerador de DRE --- */
+function gdMesSel(){return $('gdAno').value+'-'+String(+$('gdMes').value+1).padStart(2,'0')}
+function gdSetupSel(){
+  if($('gdMes').options.length)return;
+  MESES_UP.forEach((m,i)=>{const o=document.createElement('option');o.value=i;o.textContent=m;$('gdMes').appendChild(o)});
+  const y=new Date().getFullYear();for(let a=y-2;a<=y+2;a++){const o=document.createElement('option');o.value=a;o.textContent=a;$('gdAno').appendChild(o)}
+  const n=new Date();$('gdMes').value=n.getMonth();$('gdAno').value=y;
+  ['gdMes','gdAno'].forEach(i=>$(i).onchange=()=>{if(GD.dirty&&!confirm('Há alterações não salvas neste mês. Trocar mesmo assim?')){$('gdMes').value=+GD.month.slice(5)-1;$('gdAno').value=GD.month.slice(0,4);return}gdCarregar()});
+}
+function gdCarregar(){
+  if(closings===null||dreReports===null)return;
+  const m=gdMesSel();GD.month=m;GD.dirty=false;
+  const rep=dreReports.find(r=>r.month.slice(0,7)===m);
+  if(rep){const d=rep.data||{};GD.incl=new Set(d.incl||[]);GD.revs=(d.revs||[]).map(r=>({...r,id:gdSeq++}));GD.costs=(d.costs||[]).map(c=>({...c,id:gdSeq++}))}
+  else{GD.incl=new Set(closings.filter(c=>!c.dre_month&&c.period_start.slice(0,7)===m).map(c=>c.id));GD.revs=[];GD.costs=[]}
+  GD.vistos=new Set(closings.map(c=>c.id));
+  renderGd();
+}
+function gdFechVisiveis(){const m=GD.month;return closings.filter(c=>(!c.dre_month||c.dre_month.slice(0,7)===m)).sort((a,b)=>a.period_start<b.period_start?-1:1)}
+function gdCalc(){
+  const cabsIds=cabins.map(c=>c.id),porCab=Object.fromEntries(cabsIds.map(i=>[i,0])),revLinhas=[],custos=[];
+  gdFechVisiveis().filter(c=>GD.incl.has(c.id)).forEach(c=>{const d=c.data||{},lab=br(c.period_start)+' a '+br(c.period_end),v={};
+    cabsIds.forEach(i=>{const x=((d.tot||{}).porCab||{})[i];v[i]=x?Number(x.v)||0:0;porCab[i]+=v[i]});revLinhas.push({label:'Fechamento '+lab,v,auto:true});
+    const t=d.tot||{};if(t.limp>0)custos.push({desc:'Limpeza + lavanderia — '+lab,cat:'Limpezas',val:Number(t.limp),auto:true});
+    if(t.com>0)custos.push({desc:'Comissão do host — '+lab,cat:'Comissão',val:Number(t.com),auto:true});
+    (d.ex||[]).forEach(e=>{if(e.valor>0)custos.push({desc:(e.descricao||'Custo extra')+' — '+lab,cat:'Outros',val:Number(e.valor),auto:true})})});
+  GD.revs.forEach(r=>{const v={};cabsIds.forEach(i=>{v[i]=Number((r.v||{})[i])||0;porCab[i]+=v[i]});revLinhas.push({label:r.label||'(sem período)',v})});
+  GD.costs.forEach(c=>custos.push({desc:c.desc||'(sem descrição)',cat:c.cat||'Outros',val:Number(c.val)||0}));
+  const receita=cabsIds.reduce((a,i)=>a+porCab[i],0),byCat={};custos.forEach(c=>{byCat[c.cat]=(byCat[c.cat]||0)+c.val});
+  const varCats=DRE_CATS.filter(c=>DRE_TIPO[c]&&byCat[c]),fixCats=DRE_CATS.filter(c=>!DRE_TIPO[c]&&byCat[c]).concat(Object.keys(byCat).filter(c=>!DRE_CATS.includes(c)));
+  const tVar=varCats.reduce((a,c)=>a+byCat[c],0),tFix=fixCats.reduce((a,c)=>a+byCat[c],0),mc=receita-tVar,lucro=mc-tFix;
+  return {cabNomes:Object.fromEntries(cabins.map(c=>[c.id,c.name])),porCab,receita,revLinhas,custos,byCat,varCats,fixCats,tVar,tFix,mc,lucro};
+}
+function dreResumoEl(R,mes){ // o bloco escuro do DRE (usado no gerador e na aba DRE)
+  const box=el('div','dre-sum');box.appendChild(el('div','eb','DRE — Demonstração de Resultado'));
+  const h=el('h2',null,'Fechamento do mês ');h.appendChild(el('span','ml','— '+mesNome(mes)));box.appendChild(h);
+  const ln=(l,v,cls,vc)=>{const d=el('div','sl'+(cls?' '+cls:''));d.appendChild(el('span','lb',l));d.appendChild(el('span','vl'+(vc?' '+vc:''),dMoney(v)));box.appendChild(d)};
+  const nomes=Object.keys(R.porCab).map(i=>R.cabNomes[i]||i);
+  ln('Receita bruta ('+nomes.join(' + ')+')',R.receita,'subt');
+  box.appendChild(el('div','brk',Object.keys(R.porCab).map(i=>(R.cabNomes[i]||i)+': '+dMoney(R.porCab[i])).join(' · ')));
+  ln('(–) Custos variáveis',R.tVar,'subt',R.varCats.length?'neg':null);R.varCats.forEach(c=>ln(c,R.byCat[c],'sub'));
+  ln('(=) Margem de contribuição',R.mc,'tot',R.mc>=0?'pos':'neg');box.appendChild(el('div','mn',R.receita>0?(R.mc/R.receita*100).toFixed(1).replace('.',',')+'% da receita':''));
+  const sp=el('div',null);sp.style.height='14px';box.appendChild(sp);
+  ln('(–) Custos fixos',R.tFix,'subt',R.fixCats.length?'neg':null);R.fixCats.forEach(c=>ln(c,R.byCat[c],'sub'));
+  ln('(=) Lucro líquido',R.lucro,'tot',R.lucro>=0?'pos':'neg');box.appendChild(el('div','mn','Margem líquida: '+(R.receita>0?(R.lucro/R.receita*100).toFixed(1).replace('.',',')+'%':'—')));
+  return box;
+}
+function gdInput(type,val,ph,on,cls){const i=document.createElement('input');i.type=type;if(type==='number')i.step='0.01';i.value=val==null?'':val;if(ph)i.placeholder=ph;if(cls)i.className=cls;i.oninput=()=>{on(i.value);GD.dirty=true};return i}
+function gdX(on){const b=el('button','fch-x','×');b.type='button';b.setAttribute('aria-label','Remover');b.onclick=()=>{on();GD.dirty=true;renderGd()};return b}
+function renderGd(){
+  const box=$('gdBox');if(!box)return;
+  if(closings===null||dreReports===null){box.textContent='';box.appendChild(el('div','card')).appendChild(el('p','hint','O DRE ainda não foi ativado no banco de dados.'));return}
+  gdSetupSel();if(!GD.month){gdCarregar();return}
+  // fechamentos enviados depois de abrir o mês entram marcados se forem deste mês
+  closings.forEach(c=>{if(!GD.vistos.has(c.id)){GD.vistos.add(c.id);if(!c.dre_month&&c.period_start.slice(0,7)===GD.month)GD.incl.add(c.id)}});
+  const rep=dreReports.find(r=>r.month.slice(0,7)===GD.month);
+  $('gdStatus').textContent=rep?(rep.status==='fixo'?'DRE fixo já criado para este mês (atualizado em '+dtbr(rep.fixed_at||rep.updated_at)+'). Criar de novo substitui o anterior.':'Rascunho salvo em '+dtbr(rep.updated_at)+'.'):'';
+  // fechamentos
+  const fl=$('gdFech');fl.textContent='';const vis=gdFechVisiveis();
+  if(!vis.length)fl.appendChild(el('p','hint','Nenhum fechamento enviado ainda. Na aba Fechamentos, use "Enviar para DRE".'));
+  else{const w=el('div','tw'),t=document.createElement('table');t.innerHTML='<thead><tr><th></th><th>Período</th>'+cabins.map(c=>'<th>'+c.name.replace(/</g,'&lt;')+'</th>').join('')+'<th>Limpezas</th><th>Comissão</th><th>Extras</th><th></th></tr></thead>';const bd=document.createElement('tbody');
+    vis.forEach(c=>{const d=c.data||{},tt=d.tot||{},tr=document.createElement('tr');const td0=document.createElement('td');const ck=document.createElement('input');ck.type='checkbox';ck.style.width='auto';ck.checked=GD.incl.has(c.id);
+      ck.onchange=()=>{ck.checked?GD.incl.add(c.id):GD.incl.delete(c.id);GD.dirty=true;renderGdResumo()};td0.appendChild(ck);tr.appendChild(td0);
+      const per=br(c.period_start)+' a '+br(c.period_end)+(c.period_start.slice(0,7)!==GD.month?' (outro mês)':'');
+      [per].concat(cabins.map(x=>dMoney(Number((((tt.porCab||{})[x.id])||{}).v)||0)),[dMoney(Number(tt.limp)||0),dMoney(Number(tt.com)||0),dMoney(Number(tt.ex)||0)]).forEach(v=>tr.appendChild(el('td',null,v)));
+      const tdx=document.createElement('td');if(!c.dre_month){const b=el('button','btn danger','Excluir');b.type='button';b.style.cssText='padding:5px 10px;font-size:13px';
+        b.onclick=async()=>{if(!confirm('Excluir o fechamento de '+br(c.period_start)+' a '+br(c.period_end)+'? Ele sai do Gerador de DRE.'))return;const {error}=await sb.from('closings').delete().eq('id',c.id);if(error){toast('Não foi possível excluir.');return}GD.incl.delete(c.id);toast('Fechamento excluído.');loadAll()};tdx.appendChild(b)}
+      tr.appendChild(tdx);bd.appendChild(tr)});
+    t.appendChild(bd);w.appendChild(t);fl.appendChild(w)}
+  // receitas manuais
+  const rv=$('gdRevs');rv.textContent='';
+  GD.revs.forEach(r=>{r.v=r.v||{};const row=el('div','fch-row');row.appendChild(gdInput('text',r.label,'Período (ex.: 14 a 20 de junho)',v=>{r.label=v}));
+    cabins.forEach(c=>{const i=gdInput('number',r.v[c.id]||'',c.name,v=>{r.v[c.id]=parseFloat(v)||0;renderGdResumo()},'v');i.title=c.name;row.appendChild(i)});
+    row.appendChild(gdX(()=>{GD.revs=GD.revs.filter(x=>x!==r)}));rv.appendChild(row)});
+  if(!GD.revs.length)rv.appendChild(el('p','hint','Receitas fora dos fechamentos enviados (opcional).'));
+  // custos manuais
+  const cs=$('gdCosts');cs.textContent='';
+  GD.costs.forEach(c=>{const row=el('div','fch-row');row.appendChild(gdInput('text',c.desc,'Descrição do custo',v=>{c.desc=v}));
+    const s=document.createElement('select');s.style.cssText='flex:0 0 160px;width:auto';DRE_CATS.forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;s.appendChild(o)});s.value=c.cat||'Outros';s.onchange=()=>{c.cat=s.value;GD.dirty=true;renderGdResumo()};row.appendChild(s);
+    row.appendChild(gdInput('number',c.val||'','Valor',v=>{c.val=parseFloat(v)||0;renderGdResumo()},'v'));row.appendChild(gdX(()=>{GD.costs=GD.costs.filter(x=>x!==c)}));cs.appendChild(row)});
+  if(!GD.costs.length)cs.appendChild(el('p','hint','Nenhum custo lançado à mão ainda (luz, internet, arrendamento etc.).'));
+  renderGdResumo();
+}
+function renderGdResumo(){
+  const R=gdCalc(),a=$('gdAuto');a.textContent='';
+  const auto=R.custos.filter(c=>c.auto);
+  if(auto.length){a.appendChild(el('p','hint','Vindos dos fechamentos incluídos:'));auto.forEach(c=>{const d=el('div','fch-line');d.appendChild(el('span',null,c.desc+' · '+c.cat));d.appendChild(el('span','neg',dMoney(c.val)));a.appendChild(d)})}
+  const s=$('gdSum');s.textContent='';s.appendChild(dreResumoEl(R,GD.month));
+}
+function gdDados(){return {incl:[...GD.incl],revs:GD.revs.map(({id,...r})=>r),costs:GD.costs.map(({id,...c})=>c)}}
+async function gdSalvar(status){
+  const R=gdCalc(),mes=GD.month+'-01',data={...gdDados(),...(status==='fixo'?{snap:R,fechamentos:gdFechVisiveis().filter(c=>GD.incl.has(c.id)).map(c=>({id:c.id,ini:c.period_start,fim:c.period_end}))}:{})};
+  const rep=dreReports.find(r=>r.month.slice(0,7)===GD.month);
+  if(status==='fixo'){
+    if(R.receita<=0&&!R.custos.length){toast('O DRE está vazio.');return}
+    if(!confirm((rep&&rep.status==='fixo'?'Já existe um DRE fixo para '+mesNome(GD.month)+'. Substituir pelo atual?':'Criar o DRE fixo de '+mesNome(GD.month)+'? Ele vai para a aba DRE.')))return;
+  }else if(rep&&rep.status==='fixo'){
+    if(!confirm('Este mês já tem DRE fixo. Salvar como rascunho vai desfazer o DRE fixo até você criá-lo de novo. Continuar?'))return;
+  }
+  const row={month:mes,status,data,updated_at:new Date().toISOString(),fixed_at:status==='fixo'?new Date().toISOString():null};
+  const {error}=await sb.from('dre_reports').upsert(row,{onConflict:'month'});if(error){toast('Não foi possível salvar.');return}
+  // fechamentos usados ficam ligados a este mês; os tirados voltam a ficar livres
+  await sb.from('closings').update({dre_month:null}).eq('dre_month',mes);
+  if(status==='fixo'&&GD.incl.size)await sb.from('closings').update({dre_month:mes}).in('id',[...GD.incl]);
+  GD.dirty=false;toast(status==='fixo'?'DRE fixo de '+mesNome(GD.month)+' criado. Veja na aba DRE.':'Rascunho salvo.');await loadAll();
+}
+function dreHtmlImpressao(R,mes,extra){
+  const tmp=document.createElement('div');tmp.appendChild(dreResumoEl(R,mes));
+  return '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>DRE '+mesNome(mes)+' — Cabanas LOOM</title><style>'+
+  'body{font-family:Arial,Helvetica,sans-serif;color:#2B2420;max-width:720px;margin:36px auto;padding:0 20px}h1{font-family:Georgia,serif;font-weight:500;font-size:26px;margin:0 0 4px}.sub{color:#6B5F52;font-size:13px;margin-bottom:22px}'+
+  '.dre-sum{border:1.5px solid #2B2420;border-radius:8px;padding:24px 26px}.eb{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#92502D;font-weight:600}.dre-sum h2{font-family:Georgia,serif;font-weight:500;font-size:20px;margin:4px 0 12px}.ml{font-size:14px;color:#6B5F52}'+
+  '.sl{display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid #E4DCC8;font-size:14px}.sl.sub{border-bottom:none;padding:5px 0 5px 16px;font-size:13px;color:#6B5F52}.sl.subt .lb{font-weight:600}.sl.tot{border-top:1.5px solid #2B2420;margin-top:6px;padding-top:14px;font-family:Georgia,serif;font-size:18px}.vl{font-weight:600}.pos{color:#4B6B4F}.neg{color:#A9463A}.brk,.mn{font-size:12px;color:#6B5F52}.mn{text-align:right;margin-top:6px}'+
+  'table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}td,th{padding:6px 4px;border-bottom:1px solid #E4DCC8;text-align:left}th{color:#6B5F52;font-size:11px;text-transform:uppercase}h3{font-size:12px;text-transform:uppercase;letter-spacing:.1em;color:#6B5F52;margin:26px 0 4px}'+
+  '</style></head><body><h1>DRE mensal — Cabanas LOOM</h1><div class="sub">Referente a '+mesNome(mes)+(extra||'')+'</div>'+tmp.innerHTML+dreDetalhesHtml(R)+
+  '<script>window.onload=function(){setTimeout(function(){window.print()},300)};<\/script></body></html>';
+}
+function dreDetalhesHtml(R){
+  const e=x=>String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;');const ids=Object.keys(R.porCab);
+  return '<h3>Receitas</h3><table><tr><th>Origem</th>'+ids.map(i=>'<th style="text-align:right">'+e(R.cabNomes[i]||i)+'</th>').join('')+'</tr>'+
+    (R.revLinhas.length?R.revLinhas.map(l=>'<tr><td>'+e(l.label)+'</td>'+ids.map(i=>'<td style="text-align:right">'+dMoney(Number(l.v[i])||0)+'</td>').join('')+'</tr>').join(''):'<tr><td colspan="'+(ids.length+1)+'">Nenhuma receita.</td></tr>')+'</table>'+
+    '<h3>Custos e despesas</h3><table><tr><th>Descrição</th><th>Categoria</th><th style="text-align:right">Valor</th></tr>'+
+    (R.custos.length?R.custos.map(c=>'<tr><td>'+e(c.desc)+'</td><td>'+e(c.cat)+'</td><td style="text-align:right">'+dMoney(c.val)+'</td></tr>').join(''):'<tr><td colspan="3">Nenhum custo.</td></tr>')+'</table>';
+}
+function abrirImpressao(html,nome){
+  const url=URL.createObjectURL(new Blob([html],{type:'text/html'}));const w=window.open(url,'_blank');
+  if(!w){const a=document.createElement('a');a.href=url;a.download=nome+'.html';document.body.appendChild(a);a.click();a.remove();toast('Pop-up bloqueado: o relatório foi baixado. Abra o arquivo para imprimir.')}
+  setTimeout(()=>URL.revokeObjectURL(url),10000);
+}
+
+/* --- upload de PDF de fechamento (para fechamentos antigos, gerados antes do painel) --- */
+let pdfjsPronto=null;
+function carregarPdfJs(){if(pdfjsPronto)return pdfjsPronto;pdfjsPronto=new Promise((ok,erro)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  s.onload=()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';ok(window.pdfjsLib)};s.onerror=()=>{pdfjsPronto=null;erro(new Error('pdf.js'))};document.head.appendChild(s)});return pdfjsPronto}
+async function gdLerPdf(file){
+  const st=$('gdParse');st.className='hint';st.textContent='Lendo PDF...';
+  try{const lib=await carregarPdfJs();const pdf=await lib.getDocument({data:await file.arrayBuffer()}).promise;let txt='';
+    for(let p=1;p<=pdf.numPages;p++){const pg=await pdf.getPage(p);const c=await pg.getTextContent();txt+=c.items.map(i=>i.str).join(' ')+' '}
+    gdInterpretar(txt.replace(/\s+/g,' ').trim())}
+  catch(e){st.textContent='Não foi possível ler este PDF.'}
+}
+function gdInterpretar(flat){
+  const st=$('gdParse');
+  const sub1=flat.match(/Subtotal\s+(?:Cabana\s+)?Loom\s*1\s*:?\s*R\$\s*([\d.,]+)/i),sub2=flat.match(/Subtotal\s+(?:Cabana\s+)?Loom\s*2\s*:?\s*R\$\s*([\d.,]+)/i);
+  if(!sub1&&!sub2){st.textContent='Não reconheci o formato deste PDF. Lance os valores à mão nas tabelas abaixo.';return}
+  const per=flat.match(/Per[ií]odo:?\s*(.+?)\s*(?:Cabana\s+)?LOOM\s*1/i),lim=flat.match(/[–-]\s*R\$\s*([\d.,]+)\s*Saldo/i),com=flat.match(/Comiss[aã]o do host[^–-]*[–-]\s*R\$\s*([\d.,]+)/i);
+  const label=per?per[1].replace(/^Fechamento de\s*/i,'').trim():'Fechamento importado';
+  const v={};if(cabins[0])v[cabins[0].id]=sub1?parseBRn(sub1[1]):0;if(cabins[1])v[cabins[1].id]=sub2?parseBRn(sub2[1]):0;
+  GD.revs.push({id:gdSeq++,label,v});const add=[];
+  if(lim){const x=parseBRn(lim[1]);if(x>0){GD.costs.push({id:gdSeq++,desc:'Limpeza + lavanderia — '+label,cat:'Limpezas',val:x});add.push('Limpeza '+dMoney(x))}}
+  if(com){const x=parseBRn(com[1]);if(x>0){GD.costs.push({id:gdSeq++,desc:'Comissão do host — '+label,cat:'Comissão',val:x});add.push('Comissão '+dMoney(x))}}
+  const exb=flat.match(/CUSTOS EXTRAS(.*?)RESUMO COMBINADO/i);
+  if(exb){const re=/([A-Za-zÀ-ÿ()\s]+?)\s*R\$\s*([\d.,]+)/g;let m;while((m=re.exec(exb[1]))!==null){const d=m[1].trim(),x=parseBRn(m[2]);if(x>0&&!/sem descri/i.test(d)){GD.costs.push({id:gdSeq++,desc:d+' — '+label,cat:'Outros',val:x});add.push(d+' '+dMoney(x))}}}
+  GD.dirty=true;renderGd();
+  st.textContent='Adicionado "'+label+'": '+Object.keys(v).map(i=>cabName(i)+' '+dMoney(v[i])).join(', ')+(add.length?' · Custos: '+add.join(', '):'');
+}
+
+/* --- aba DRE (DREs fixos) --- */
+function renderDre(){
+  const box=$('dreBox');if(!box)return;box.textContent='';
+  if(dreReports===null){box.appendChild(el('div','card')).appendChild(el('p','hint','O DRE ainda não foi ativado no banco de dados.'));return}
+  const fixos=dreReports.filter(r=>r.status==='fixo').sort((a,b)=>a.month<b.month?1:-1);
+  const c=el('div','card');c.appendChild(el('h2',null,'DREs mensais'));
+  if(!fixos.length){c.appendChild(el('p','hint','Nenhum DRE fixo ainda. Monte o mês no Gerador de DRE e clique em "Criar DRE fixo".'));box.appendChild(c);return}
+  const bar=el('div','bar');const sel=document.createElement('select');sel.style.width='auto';
+  fixos.forEach(r=>{const o=document.createElement('option');o.value=r.month;o.textContent=mesNome(r.month.slice(0,7));sel.appendChild(o)});
+  if(renderDre.sel&&fixos.some(r=>r.month===renderDre.sel))sel.value=renderDre.sel;
+  sel.onchange=()=>{renderDre.sel=sel.value;renderDre()};bar.appendChild(el('label',null,'Mês')).style.margin='0';bar.appendChild(sel);
+  const r=fixos.find(x=>x.month===sel.value),R=r.data.snap,mes=r.month.slice(0,7);
+  const pb=el('button','btn','Imprimir / PDF');pb.type='button';pb.onclick=()=>abrirImpressao(dreHtmlImpressao(R,mes,' · DRE fixo criado em '+dtbr(r.fixed_at||r.updated_at)),'dre-loom-'+mes);bar.appendChild(pb);
+  const eb=el('button','btn ghost','Reabrir no gerador');eb.type='button';eb.onclick=()=>{$('gdMes').value=+mes.slice(5)-1;$('gdAno').value=mes.slice(0,4);GD.month=null;document.querySelector('nav button[data-tab="dreg"]').click();gdCarregar()};bar.appendChild(eb);
+  c.appendChild(bar);c.appendChild(el('p','hint','Foto do mês criada em '+dtbr(r.fixed_at||r.updated_at)+'.'+((r.data.fechamentos||[]).length?' Fechamentos incluídos: '+r.data.fechamentos.map(f=>br(f.ini)+' a '+br(f.fim)).join('; ')+'.':'')));
+  box.appendChild(c);
+  const s=el('div',null);s.style.marginBottom='16px';s.appendChild(dreResumoEl(R,mes));box.appendChild(s);
+  const d=el('div','card');d.innerHTML=dreDetalhesHtml(R);box.appendChild(d);
+}
+
+$('fchDre').onclick=fchEnviarDre;
+$('gdAddRev').onclick=()=>{GD.revs.push({id:gdSeq++,label:'',v:{}});GD.dirty=true;renderGd()};
+$('gdAddCost').onclick=()=>{GD.costs.push({id:gdSeq++,desc:'',cat:'Outros',val:0});GD.dirty=true;renderGd()};
+$('gdFile').onchange=e=>{const f=e.target.files[0];if(f)gdLerPdf(f);e.target.value=''};
+$('gdRasc').onclick=()=>gdSalvar('rascunho');
+$('gdFixo').onclick=()=>gdSalvar('fixo');
+$('gdPdf').onclick=()=>abrirImpressao(dreHtmlImpressao(gdCalc(),GD.month,' · prévia (ainda não é o DRE fixo)'),'dre-loom-'+GD.month);
+$('gdLimpar').onclick=()=>{if(!confirm('Limpar os lançamentos manuais e desmarcar todos os fechamentos deste mês? (O que já foi salvo só muda quando você salvar de novo.)'))return;GD.incl=new Set();GD.revs=[];GD.costs=[];GD.dirty=true;renderGd()};
+window.addEventListener('beforeunload',e=>{if(GD.dirty){e.preventDefault();e.returnValue=''}});
+
 /* ---------- abas ---------- */
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
@@ -1213,6 +1487,8 @@ document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   $('tab-msg').classList.toggle('hide',b.dataset.tab!=='msg');
   $('tab-est').classList.toggle('hide',b.dataset.tab!=='est');
   $('tab-fch').classList.toggle('hide',b.dataset.tab!=='fch');
+  $('tab-dreg').classList.toggle('hide',b.dataset.tab!=='dreg');
+  $('tab-dre').classList.toggle('hide',b.dataset.tab!=='dre');
 });
 
 /* ---------- calendário ---------- */
