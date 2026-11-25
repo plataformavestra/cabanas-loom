@@ -49,6 +49,9 @@ main{padding:18px 22px 60px;max-width:1100px;margin:0 auto}
 .day .b{position:absolute;left:3px;right:3px;bottom:3px;height:5px;border-radius:3px}
 .day .b.manual{background:var(--manual)}.day .b.reserva{background:var(--reserva)}.day .b.airbnb{background:var(--airbnb)}.day .b.booking{background:var(--booking)}.day .b.site{background:var(--site)}
 .day.occ{background:#f9f4ea}
+.day .st{position:absolute;top:52%;height:6px;margin-top:-3px;background:#3a3028;pointer-events:none;z-index:1}
+.day .st.bl{background:#9a8b78}
+.day .st.ini{border-radius:4px 0 0 4px}.day .st.fim{border-radius:0 4px 4px 0}
 .leg{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--mut);margin:8px 0}
 .leg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
 .selbar{display:flex;gap:10px;align-items:end;flex-wrap:wrap;margin-top:12px}
@@ -152,7 +155,7 @@ th{font-weight:500;color:var(--mut);font-size:12px}
           <span><i style="background:var(--booking)"></i>Booking</span>
           <span><i style="background:var(--site)"></i>Site</span>
         </div>
-        <div class="hint">Clique no primeiro dia e depois no último dia da estadia (as noites ocupadas). O check-out é no dia seguinte ao último dia.</div>
+        <div class="hint">Com uma cabana escolhida, a barra escura no meio dos dias mostra cada estadia, da entrada à saída (cinza = bloqueio seu sem hóspede). Clique no primeiro dia e depois no último dia da estadia (as noites ocupadas). O check-out é no dia seguinte ao último dia.</div>
         <div class="selbar" id="selbar" style="display:none">
           <div><label>Entrada (check-in)</label><input id="selIn" readonly></div>
           <div><label>Saída (check-out)</label><input id="selOut" readonly></div>
@@ -1054,6 +1057,14 @@ function renderCal(){
       if(dt<hoje)el.classList.add('past');
       const occ=occupancy(dt);
       if(occ.length){el.classList.add('occ');const b=document.createElement('span');b.className='b '+occ[0];el.appendChild(b)}
+      // barra de cada estadia: do meio do dia de entrada até o meio do dia de saída
+      const f=cabinFilter();
+      if(f!=='all'){const kk=iso(dt);
+        estadiasCal(f).forEach(e=>{
+          if(e.start<=kk&&kk<e.end){const sp=document.createElement('span');sp.className='st'+(e.bloq?' bl':'')+(e.start===kk?' ini':'');
+            const dw=dt.getDay();sp.style.left=e.start===kk?'56%':(dw===0?'0':'-3px');sp.style.right=dw===6?'0':'-3px';sp.title=(e.bloq?'Bloqueio: ':'Estadia: ')+br(e.start)+' a '+br(e.end);el.appendChild(sp)}
+          if(e.end===kk){const sp=document.createElement('span');sp.className='st fim'+(e.bloq?' bl':'');sp.style.left=dt.getDay()===0?'0':'-3px';sp.style.right='56%';sp.title='Saída '+br(e.end);el.appendChild(sp)}
+        })}
       const k=iso(dt);
       if(selA&&selB&&k>=selA&&k<=selB||selA&&!selB&&k===selA)el.classList.add('sel');
       el.onclick=()=>pick(k);
@@ -1061,6 +1072,11 @@ function renderCal(){
     }
     box.appendChild(g);wrap.appendChild(box);
   }
+}
+function estadiasCal(cab){ // reservas (unindo duplicadas entre canais) + bloqueios seus, cada um como uma barra
+  const out=estadiasCanal(cab).map(e=>({start:e.start,end:e.end,bloq:false}));
+  blocks.filter(b=>b.cabin_id===cab&&b.source==='manual').forEach(b=>out.push({start:b.start_date,end:b.end_date,bloq:true}));
+  return out;
 }
 function pick(k){
   if(cabinFilter()==='all'){toast('Escolha uma cabana para bloquear datas.');return}
