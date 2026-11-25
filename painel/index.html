@@ -635,7 +635,7 @@ function askForm(title,fields,okTxt){
       for(const x of fields){if(!x.k)continue;const i=ins[x.k];
         if(x.type==='check'){out[x.k]=i.checked;continue}
         const v=i.value.trim();
-        if(x.type==='date'){const z=parseBr(v);if(!z){err.textContent='Confira a data (DD/MM/AAAA).';return}if(z>hojeIso()){err.textContent='A data não pode ser no futuro.';return}out[x.k]=z}
+        if(x.type==='date'){const z=parseBr(v);if(!z){err.textContent='Confira a data (DD/MM/AAAA).';return}if(!x.future&&z>hojeIso()){err.textContent='A data não pode ser no futuro.';return}out[x.k]=z}
         else if(x.type==='money'){if(!v){if(x.req){err.textContent='Informe o valor.';return}out[x.k]=null;continue}const n=Number(v.replace(/\./g,'').replace(',','.').replace(/[^\d.]/g,''));if(!isFinite(n)||n<0||n>=100000){err.textContent='Confira o valor.';return}out[x.k]=Math.round(n*100)/100}
         else if(x.type==='int'){const n=parseInt(v,10);if(!(n>=x.min&&n<=x.max)){err.textContent='Informe um número de '+x.min+' a '+x.max+'.';return}out[x.k]=n}
         else out[x.k]=v||null}
@@ -865,6 +865,22 @@ $('today').onclick=()=>{const n=new Date();view=new Date(n.getFullYear(),n.getMo
 $('calCabin').onchange=()=>{selA=selB=null;updateSel();renderCal();renderBlocks()};
 $('showPast').onchange=()=>renderBlocks();
 
+async function editarBloqueio(b){
+  const v=await askForm('Editar datas · '+cabName(b.cabin_id),[
+    {info:'A saída (check-out) é o dia em que o hóspede vai embora: a última noite é a véspera.'},
+    {k:'a',label:'Entrada (check-in)',type:'date',future:true,value:br(b.start_date)},
+    {k:'b',label:'Saída (check-out)',type:'date',future:true,value:br(b.end_date)},
+    {k:'tipo',label:'Tipo',type:'select',options:[['reserva','Reserva (teve hóspede)'],['manual','Bloqueio (sem hóspede)']],value:b.source},
+    {k:'note',label:'Observação (só você vê)',type:'text',value:b.note||''}],'Salvar');
+  if(!v)return;
+  if(v.b<=v.a){toast('A saída precisa ser depois da entrada.');return editarBloqueio({...b,start_date:v.a,end_date:v.b,source:v.tipo,note:v.note})}
+  if(diasEntre(v.a,v.b)>60){toast('Período longo demais (máximo 60 noites).');return}
+  const clash=blocks.some(x=>x.id!==b.id&&x.cabin_id===b.cabin_id&&x.start_date<v.b&&x.end_date>v.a);
+  if(clash&&!confirm('Já existe outra reserva ou bloqueio nessas datas. Salvar mesmo assim?'))return;
+  const {error}=await sb.from('calendar_blocks').update({start_date:v.a,end_date:v.b,source:v.tipo==='manual'?'manual':'reserva',note:v.note}).eq('id',b.id);
+  if(error){toast('Não foi possível salvar.');return}
+  toast('Datas atualizadas: '+br(v.a)+' a '+br(v.b)+'.');loadAll();
+}
 function renderBlocks(){
   const f=cabinFilter(),tb=$('blocks');tb.innerHTML='';
   const hojeIso=iso(new Date());
@@ -884,6 +900,7 @@ function renderBlocks(){
       t.textContent=outro==='reserva'?'Marcar como reserva':'Marcar como bloqueio';
       t.onclick=async()=>{const {error}=await sb.from('calendar_blocks').update({source:outro}).eq('id',b.id);if(error){toast('Não foi possível alterar.');return}toast('Alterado.');loadAll()};
       tdX.appendChild(t);
+      const ed=document.createElement('button');ed.className='btn ghost';ed.style.marginRight='6px';ed.textContent='Editar';ed.onclick=()=>editarBloqueio(b);tdX.appendChild(ed);
       const x=document.createElement('button');x.className='btn danger';x.textContent='Remover';
       x.onclick=async()=>{if(!confirm('Remover estas datas?'))return;const {error}=await sb.from('calendar_blocks').delete().eq('id',b.id);if(error){toast('Não foi possível remover.');return}toast('Removido.');loadAll()};
       tdX.appendChild(x)}
