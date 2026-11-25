@@ -1154,6 +1154,7 @@ function renderIni(){
   c3.appendChild(c4);
   c3.appendChild(el('p','hint','Como contamos: noites ocupadas ÷ noites disponíveis. Dias que você bloqueou sem hóspede saem da conta. Se a mesma estadia aparecer em dois canais (ex.: site e Airbnb), ela conta uma vez só, no canal de origem. O histórico do Airbnb só existe a partir de quando a sincronização começou; reservas antigas entram se você lançá-las no calendário.'));
   box.appendChild(c3);
+  renderFin(box,P);
 }
 
 /* ---------- fechamento semanal (trazido da ferramenta externa; ainda não salva nada) ---------- */
@@ -1474,6 +1475,87 @@ $('gdFixo').onclick=()=>gdSalvar('fixo');
 $('gdPdf').onclick=()=>abrirImpressao(dreHtmlImpressao(gdCalc(),GD.month,' · prévia (ainda não é o DRE fixo)'),'dre-loom-'+GD.month);
 $('gdLimpar').onclick=()=>{if(!confirm('Limpar os lançamentos manuais e desmarcar todos os fechamentos deste mês? (O que já foi salvo só muda quando você salvar de novo.)'))return;GD.incl=new Set();GD.revs=[];GD.costs=[];GD.dirty=true;renderGd()};
 window.addEventListener('beforeunload',e=>{if(GD.dirty){e.preventDefault();e.returnValue=''}});
+
+/* ---------- financeiro: reservas com valor (site + fechamentos) e custos (DRE / fechamentos) ---------- */
+// O calendário diz quando e onde; o site e os fechamentos dizem quanto e quem.
+function finReservas(){
+  const m=new Map();
+  (requests||[]).filter(r=>r.status==='confirmada'&&r.total_price!=null).forEach(r=>{
+    m.set(r.cabin_id+'|'+r.start_date+'|'+r.end_date,{cab:r.cabin_id,ini:r.start_date,fim:r.end_date,nome:r.guest_name||'',valor:Number(r.total_price)||0,canal:'site',origem:'site'})});
+  (closings||[]).slice().sort((a,b)=>(a.created_at||'')<(b.created_at||'')?-1:1).forEach(c=>{const d=c.data||{};
+    Object.entries(d.res||{}).forEach(([cab,l])=>(l||[]).forEach((r,i)=>{
+      const v=Number(r.valor)||0;
+      if(r.ini&&r.fim)m.set(cab+'|'+r.ini+'|'+r.fim,{cab,ini:r.ini,fim:r.fim,nome:r.nome||'',valor:v,canal:r.canal||'outro',origem:'fechamento'});
+      else m.set('man|'+c.id+'|'+cab+'|'+i,{cab,ini:c.period_start,fim:null,nome:r.nome||'',valor:v,canal:'outro',origem:'fechamento'});
+    }))});
+  return [...m.values()];
+}
+function custosMes(mes){ // mes = 'AAAA-MM'
+  const rep=(dreReports||[]).find(r=>r.month.slice(0,7)===mes);
+  if(rep&&rep.status==='fixo'&&rep.data&&rep.data.snap)return {fonte:'DRE fixo',custos:rep.data.snap.custos||[]};
+  const custos=[];
+  (closings||[]).filter(c=>c.period_start.slice(0,7)===mes&&(!c.dre_month||c.dre_month.slice(0,7)===mes)).forEach(c=>{const t=(c.data||{}).tot||{},lab=br(c.period_start)+' a '+br(c.period_end);
+    if(t.limp>0)custos.push({desc:'Limpeza + lavanderia — '+lab,cat:'Limpezas',val:Number(t.limp)});
+    if(t.com>0)custos.push({desc:'Comissão do host — '+lab,cat:'Comissão',val:Number(t.com)});
+    ((c.data||{}).ex||[]).forEach(e=>{if(e.valor>0)custos.push({desc:e.descricao||'Custo extra',cat:'Outros',val:Number(e.valor)})})});
+  if(rep&&rep.data)(rep.data.costs||[]).forEach(c=>custos.push({desc:c.desc||'',cat:c.cat||'Outros',val:Number(c.val)||0}));
+  return {fonte:rep?'fechamentos + rascunho do DRE':'fechamentos',custos};
+}
+function renderFin(box,P){
+  if(closings===null&&!(requests||[]).length)return;
+  const hIso=iso(new Date()),res=finReservas(),noP=res.filter(r=>r.ini>=P.a&&r.ini<P.b);
+  const comValor=noP.filter(r=>r.valor>0),fat=comValor.reduce((a,r)=>a+r.valor,0);
+  const noites=comValor.filter(r=>r.fim).reduce((a,r)=>a+diasEntre(r.ini,r.fim),0),fatComNoites=comValor.filter(r=>r.fim).reduce((a,r)=>a+r.valor,0);
+  const chaves=new Set(res.filter(r=>r.valor>0).map(r=>r.cab+'|'+r.ini+'|'+r.fim));
+  const semValor=cabins.flatMap(c=>estadiasCanal(c.id)).filter(e=>e.canal!=='site'&&e.start>=P.a&&e.start<P.b&&e.start<=hIso&&!chaves.has(e.cab+'|'+e.start+'|'+e.end));
+  const c=el('div','card');c.appendChild(el('h2',null,'Financeiro'));
+  c.appendChild(el('p','hint','Mesmo período da ocupação acima. Faturamento pela data de entrada: reservas do site (valor pago) e das outras OTAs (valor lançado nos fechamentos enviados ao DRE).'));
+  if(semValor.length){const a=el('div','alerta');a.style.marginBottom='12px';
+    const pc={};semValor.forEach(e=>{pc[e.canal]=(pc[e.canal]||0)+1});
+    a.textContent=semValor.length+(semValor.length===1?' reserva já iniciada no período está':' reservas já iniciadas no período estão')+' sem valor ('+Object.entries(pc).map(([k,v])=>v+' '+(CANAL_NOME[k]||k)).join(', ')+'). Faça o fechamento e envie para o DRE para o faturamento ficar completo.';c.appendChild(a)}
+  const k=el('div','kpis');
+  [[money(fat),'faturamento'],[String(comValor.length),'reservas com valor'],[noites?money(fatComNoites/noites):'—','diária média (faturamento ÷ noites)'],[comValor.length?money(fat/comValor.length):'—','valor médio por reserva']]
+    .forEach(([v,t])=>{const d=el('div','kpi');d.appendChild(el('b',null,v));d.appendChild(el('span',null,t));k.appendChild(d)});
+  // custos: só faz sentido em meses inteiros
+  const mesesInteiros=(iniPer==='mes'||iniPer==='ano');let custos=null,fonteTxt='';
+  if(mesesInteiros){custos=[];const fontes=new Set();let d=fromIso(P.a);while(iso(d)<P.b){const ms=iso(d).slice(0,7),cm=custosMes(ms);if(cm.custos.length){custos=custos.concat(cm.custos);fontes.add(cm.fonte)}d=new Date(d.getFullYear(),d.getMonth()+1,1)}fonteTxt=[...fontes].join(' e ')}
+  if(custos){const tc=custos.reduce((a,x)=>a+x.val,0);[[money(tc),'custos lançados'],[money(fat-tc),'resultado (faturamento − custos)']].forEach(([v,t])=>{const d=el('div','kpi');d.appendChild(el('b',null,v));d.appendChild(el('span',null,t));k.appendChild(d)})}
+  c.appendChild(k);
+  const g=el('div','g2');
+  const pc=el('div','est');pc.appendChild(el('h3',null,'Faturamento por cabana'));
+  cabins.forEach(cb=>{const v=comValor.filter(r=>r.cab===cb.id).reduce((a,r)=>a+r.valor,0),p=fat?v/fat:0;const r=el('div',null);r.style.margin='10px 0';const l=el('div',null);l.style.cssText='display:flex;justify-content:space-between;font-size:14px';
+    l.appendChild(el('span',null,cb.name));l.appendChild(el('b',null,money(v)+' · '+pct(fat?p:null)));r.appendChild(l);r.appendChild(barra(p));pc.appendChild(r)});
+  g.appendChild(pc);
+  const pk=el('div','est');pk.appendChild(el('h3',null,'Faturamento por canal'));
+  const porCanal={};comValor.forEach(r=>{porCanal[r.canal]=(porCanal[r.canal]||0)+r.valor});
+  const ks=Object.keys(porCanal).sort((a,b)=>porCanal[b]-porCanal[a]);if(!ks.length)pk.appendChild(el('p','hint','Nenhum faturamento no período.'));
+  ks.forEach(cn=>{const p=porCanal[cn]/fat;const r=el('div',null);r.style.margin='10px 0';const l=el('div',null);l.style.cssText='display:flex;justify-content:space-between;font-size:14px';
+    l.appendChild(el('span',null,CANAL_NOME[cn]||(cn==='outro'?'Outros (lançados no fechamento)':cn)));l.appendChild(el('b',null,money(porCanal[cn])+' · '+pct(p)));r.appendChild(l);r.appendChild(barra(p,CANAL_COR[cn]||'#9a8b78'));pk.appendChild(r)});
+  g.appendChild(pk);c.appendChild(g);
+  if(mesesInteiros){const cc=el('div','est');cc.style.marginTop='12px';cc.appendChild(el('h3',null,'Custos por categoria'));
+    if(!custos.length)cc.appendChild(el('p','hint','Nenhum custo lançado neste período ainda (eles vêm dos fechamentos enviados e do Gerador de DRE).'));
+    else{const bc={};custos.forEach(x=>{bc[x.cat]=(bc[x.cat]||0)+x.val});const tc=custos.reduce((a,x)=>a+x.val,0);
+      Object.keys(bc).sort((a,b)=>bc[b]-bc[a]).forEach(cat=>{const p=bc[cat]/tc;const r=el('div',null);r.style.margin='8px 0';const l=el('div',null);l.style.cssText='display:flex;justify-content:space-between;font-size:14px';
+        l.appendChild(el('span',null,cat+(DRE_TIPO[cat]?' (variável)':'')));l.appendChild(el('b',null,money(bc[cat])+' · '+pct(p)));r.appendChild(l);r.appendChild(barra(p,DRE_TIPO[cat]?'#c98a3d':'#7a6a58'));cc.appendChild(r)});
+      cc.appendChild(el('p','hint','Fonte: '+fonteTxt+'. Quando o mês tem DRE fixo, valem os custos dele.'))}
+    c.appendChild(cc)}
+  else c.appendChild(el('p','hint','Custos e resultado aparecem nas visões "Este mês" e "Este ano", porque são lançados por mês.'));
+  // faturamento mês a mês por canal
+  const ch=el('div','est');ch.style.marginTop='12px';ch.appendChild(el('h3',null,'Faturamento mês a mês'));
+  const hoje=new Date();const meses=[];for(let i=-9;i<=2;i++){const m0=new Date(hoje.getFullYear(),hoje.getMonth()+i,1);meses.push({m0,a:iso(m0),b:iso(new Date(m0.getFullYear(),m0.getMonth()+1,1)),cur:i===0})}
+  const vals=meses.map(M=>{const p={};res.filter(r=>r.valor>0&&r.ini>=M.a&&r.ini<M.b).forEach(r=>{p[r.canal]=(p[r.canal]||0)+r.valor});return p});
+  const max=Math.max(1,...vals.map(p=>Object.values(p).reduce((a,b)=>a+b,0)));
+  const row=el('div',null);row.style.cssText='display:flex;align-items:flex-end;gap:6px;height:170px;margin-top:10px;overflow-x:auto';
+  meses.forEach((M,i)=>{const p=vals[i],tot=Object.values(p).reduce((a,b)=>a+b,0);const col=el('div',null);col.style.cssText='flex:1;min-width:44px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%';
+    const lb=el('span',null,tot?'R$ '+(tot>=1000?(tot/1000).toFixed(1).replace('.',',')+' mil':Math.round(tot)):'—');lb.style.cssText='font-size:10px;color:var(--mut);margin-bottom:2px';col.appendChild(lb);
+    const st=el('div',null);st.style.cssText='width:70%;display:flex;flex-direction:column-reverse;border-radius:5px 5px 0 0;overflow:hidden;height:'+Math.max(2,Math.round(tot/max*120))+'px';
+    ['site','reserva','booking','airbnb','outro'].forEach(cn=>{if(p[cn]){const s=el('div',null);s.style.cssText='height:'+(p[cn]/tot*100)+'%;background:'+(CANAL_COR[cn]||'#9a8b78');s.title=(CANAL_NOME[cn]||'Outros')+': '+money(p[cn]);st.appendChild(s)}});
+    col.appendChild(st);const ml=el('span',null,MESES[M.m0.getMonth()].slice(0,3)+'/'+String(M.m0.getFullYear()).slice(2));ml.style.cssText='font-size:11px;margin-top:4px;color:'+(M.cur?'var(--ink);font-weight:600':'var(--mut)');col.appendChild(ml);row.appendChild(col)});
+  ch.appendChild(row);
+  const lg=el('div','leg');[['site','Site'],['airbnb','Airbnb'],['booking','Booking'],['reserva','Direto'],['outro','Outros']].forEach(([k2,t])=>{const s=el('span',null);const i=document.createElement('i');i.style.background=CANAL_COR[k2]||'#9a8b78';s.appendChild(i);s.appendChild(document.createTextNode(t));lg.appendChild(s)});
+  ch.appendChild(lg);ch.appendChild(el('p','hint','Pela data de entrada. Meses futuros mostram só o que já tem valor (reservas do site pagas).'));
+  c.appendChild(ch);box.appendChild(c);
+}
 
 /* ---------- abas ---------- */
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
