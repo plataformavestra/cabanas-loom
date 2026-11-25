@@ -125,7 +125,8 @@ th{font-weight:500;color:var(--mut);font-size:12px}
     <div><small id="who"></small><button class="btn ghost" id="logout">Sair</button></div>
   </header>
   <nav>
-    <button data-tab="cal" class="on">Calendário</button>
+    <button data-tab="ini" class="on">Início</button>
+    <button data-tab="cal">Calendário</button>
     <button data-tab="preco">Preços e regras</button>
     <button data-tab="sync">Sincronização</button>
     <button data-tab="res" id="navRes">Reservas</button>
@@ -133,7 +134,9 @@ th{font-weight:500;color:var(--mut);font-size:12px}
     <button data-tab="est">Estoque</button>
   </nav>
   <main>
-    <div id="tab-cal">
+    <div id="tab-ini"><div id="iniBox"></div></div>
+
+    <div id="tab-cal" class="hide">
       <div class="card">
         <div class="bar">
           <select id="calCabin"></select>
@@ -358,7 +361,7 @@ async function loadAll(){
   const st=await sb.from('app_settings').select('*');settings={};(st.data||[]).forEach(x=>{settings[x.key]=x.value});
   const ge=await sb.from('gas_events').select('*').order('event_date').order('created_at');gasEv=ge.error?null:(ge.data||[]);
   const gl=await sb.from('glass_events').select('*').order('event_date').order('created_at');glassEv=gl.error?null:(gl.data||[]);
-  fillCabinSelects();renderCal();renderBlocks();loadCabinForm();renderRules();renderSync();renderRes();renderMsg();renderEst();
+  fillCabinSelects();renderCal();renderBlocks();loadCabinForm();renderRules();renderSync();renderRes();renderMsg();renderEst();renderIni();
 }
 function fillCabinSelects(){
   const keep1=$('calCabin').value,keep2=$('prCabin').value;
@@ -898,10 +901,129 @@ function renderEst(){
   });
 }
 
+/* ---------- início: semana e indicadores ---------- */
+const CANAL_NOME={site:'Site',airbnb:'Airbnb',booking:'Booking',reserva:'Direto'};
+const CANAL_COR={site:'var(--site)',airbnb:'var(--airbnb)',booking:'var(--booking)',reserva:'var(--reserva)'};
+const CANAL_PRIO=['site','reserva','booking','airbnb']; // se a mesma noite aparecer em dois canais, vale o primeiro desta lista
+const DIAS_SEM=['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
+let iniPer='mes';
+function noiteCanal(cab,d){ // canal que ocupa a noite d da cabana (ou null); 'bloq' se só houver bloqueio seu
+  const l=blocks.filter(b=>b.cabin_id===cab&&b.start_date<=d&&d<b.end_date);
+  if(!l.length)return null;
+  for(const c of CANAL_PRIO)if(l.some(b=>b.source===c))return c;
+  return l.some(b=>b.source==='manual')?'bloq':(l[0].source);
+}
+function estadiasCanal(cab){ // reservas (sem bloqueios), unindo duplicadas entre canais
+  const l=blocks.filter(b=>b.cabin_id===cab&&b.source!=='manual').slice().sort((a,b)=>a.start_date<b.start_date?-1:a.start_date>b.start_date?1:CANAL_PRIO.indexOf(a.source)-CANAL_PRIO.indexOf(b.source));
+  const out=[];l.forEach(b=>{const u=out[out.length-1];
+    if(u&&b.start_date<u.end){if(b.end_date>u.end)u.end=b.end_date;if(CANAL_PRIO.indexOf(b.source)<CANAL_PRIO.indexOf(u.canal)){u.canal=b.source;u.b=b}}
+    else out.push({cab,start:b.start_date,end:b.end_date,canal:b.source,b})});
+  return out;
+}
+function quemReserva(e){
+  if(e.canal==='site'&&requests){const r=requests.find(q=>q.block_id===e.b.id)||requests.find(q=>q.cabin_id===e.cab&&q.start_date===e.start&&q.end_date===e.end&&q.status==='confirmada');
+    if(r)return r.guest_name+' · '+r.guests+(r.guests===1?' hóspede':' hóspedes')}
+  if(e.canal==='reserva')return e.b.note||'Reserva direta (lançada por você)';
+  if(e.canal==='airbnb')return 'Hóspede do Airbnb';
+  if(e.canal==='booking')return 'Hóspede do Booking';
+  return '';
+}
+function periodoIni(){
+  const h=new Date();h.setHours(0,0,0,0);const y=h.getFullYear(),m=h.getMonth();
+  if(iniPer==='mes')return {a:iso(new Date(y,m,1)),b:iso(new Date(y,m+1,1)),nome:MESES[m]+' de '+y};
+  if(iniPer==='prox30')return {a:iso(h),b:iso(addDays(h,30)),nome:'próximos 30 dias'};
+  if(iniPer==='ult30')return {a:iso(addDays(h,-30)),b:iso(h),nome:'últimos 30 dias'};
+  return {a:y+'-01-01',b:(y+1)+'-01-01',nome:'ano de '+y};
+}
+function ocupacao(cabIds,a,b){
+  const r={noites:0,disp:0,bloq:0,canal:{},fds:{o:0,d:0},sem:{o:0,d:0}};
+  cabIds.forEach(cab=>{let d=a;while(d<b){const c=noiteCanal(cab,d);const dw=fromIso(d).getDay(),fds=dw===5||dw===6;
+    if(c==='bloq')r.bloq++;else{r.disp++;(fds?r.fds:r.sem).d++;if(c){r.noites++;r.canal[c]=(r.canal[c]||0)+1;(fds?r.fds:r.sem).o++}}
+    d=iso(addDays(fromIso(d),1))}});
+  r.taxa=r.disp?r.noites/r.disp:null;return r;
+}
+const pct=v=>v==null?'—':Math.round(v*100)+'%';
+function barra(v,cor){const w=el('div',null);w.style.cssText='height:10px;background:#efe6d6;border-radius:6px;overflow:hidden;margin-top:6px';const f=el('div',null);f.style.cssText='height:100%;width:'+Math.round((v||0)*100)+'%;background:'+(cor||'var(--acc)');w.appendChild(f);return w}
+function renderIni(){
+  const box=$('iniBox');if(!box)return;box.textContent='';
+  const hoje=new Date();hoje.setHours(0,0,0,0);const hIso=iso(hoje),fim7=iso(addDays(hoje,7));
+  // pedidos esperando
+  const pend=(requests||[]).filter(r=>r.status==='pendente').length,agu=(requests||[]).filter(r=>r.status==='aguardando_pagamento').length;
+  if(pend||agu){const a=el('div','alerta');a.style.cssText+=';cursor:pointer;font-size:14px;margin:0 0 16px';
+    a.textContent=(pend?pend+(pend>1?' pedidos do site esperando a sua análise':' pedido do site esperando a sua análise'):'')+(pend&&agu?' · ':'')+(agu?agu+(agu>1?' aguardando pagamento':' aguardando pagamento'):'')+'. Clique para abrir Reservas.';
+    a.onclick=()=>document.querySelector('nav button[data-tab="res"]').click();box.appendChild(a)}
+  // ---- esta semana
+  const est=cabins.flatMap(c=>estadiasCanal(c.id));
+  const c1=el('div','card');c1.appendChild(el('h2',null,'Esta semana'));
+  c1.appendChild(el('p','hint','De '+br(hIso)+' a '+br(iso(addDays(hoje,6)))+', em todas as cabanas e canais.'));
+  const evs=[];
+  est.forEach(e=>{if(e.start>=hIso&&e.start<fim7)evs.push({d:e.start,tipo:'Check-in',e});if(e.end>=hIso&&e.end<fim7)evs.push({d:e.end,tipo:'Check-out',e})});
+  evs.sort((x,y)=>x.d<y.d?-1:x.d>y.d?1:(x.tipo==='Check-out'?-1:1));
+  const agora=est.filter(e=>e.start<hIso&&e.end>hIso);
+  if(agora.length){c1.appendChild(el('p',null,'Hospedados agora:')).style.cssText='margin:10px 0 4px;font-weight:600';
+    agora.forEach(e=>c1.appendChild(el('p','hint','• '+cabName(e.cab)+': '+quemReserva(e)+' ('+CANAL_NOME[e.canal]+'), saída em '+br(e.end))))}
+  if(!evs.length)c1.appendChild(el('p','hint','Nenhum check-in ou check-out nos próximos 7 dias.'));
+  else{const w=el('div','tw'),t=document.createElement('table');t.innerHTML='<thead><tr><th>Dia</th><th>Movimento</th><th>Cabana</th><th>Canal</th><th>Quem</th><th>Estadia</th></tr></thead>';const bd=document.createElement('tbody');
+    evs.forEach(x=>{const tr=document.createElement('tr');const dd=fromIso(x.d);
+      const dia=(x.d===hIso?'Hoje':x.d===iso(addDays(hoje,1))?'Amanhã':DIAS_SEM[dd.getDay()][0].toUpperCase()+DIAS_SEM[dd.getDay()].slice(1))+', '+br(x.d);
+      [dia,x.tipo,cabName(x.e.cab)].forEach(v=>tr.appendChild(el('td',null,v)));
+      const tdc=document.createElement('td');const tg=el('span','tag '+x.e.canal,CANAL_NOME[x.e.canal]);tdc.appendChild(tg);tr.appendChild(tdc);
+      tr.appendChild(el('td',null,quemReserva(x.e)));const n=diasEntre(x.e.start,x.e.end);tr.appendChild(el('td',null,br(x.e.start)+' a '+br(x.e.end)+' ('+n+(n===1?' noite)':' noites)')));
+      if(x.tipo==='Check-in')tr.style.fontWeight='600';bd.appendChild(tr)});
+    t.appendChild(bd);w.appendChild(t);c1.appendChild(w)}
+  box.appendChild(c1);
+  // ---- próximo check-in de cada cabana
+  const c2=el('div','card');c2.appendChild(el('h2',null,'Próximo check-in de cada cabana'));const g=el('div','estgrid');
+  cabins.forEach(c=>{const p=estadiasCanal(c.id).find(e=>e.start>=hIso);const d=el('div','est');d.appendChild(el('h3',null,c.name));
+    if(!p)d.appendChild(el('p','hint','Nenhuma reserva futura.'));
+    else{const dd=diasEntre(hIso,p.start);d.appendChild(el('div','big',br(p.start)));
+      d.appendChild(el('p','hint',(dd===0?'Hoje':dd===1?'Amanhã':'Daqui a '+dd+' dias')+' · '+diasEntre(p.start,p.end)+' noites · saída em '+br(p.end)));
+      const l=el('p',null,'');l.style.margin='6px 0 0';l.appendChild(el('span','tag '+p.canal,CANAL_NOME[p.canal]));l.appendChild(document.createTextNode(' '+quemReserva(p)));d.appendChild(l)}
+    g.appendChild(d)});
+  c2.appendChild(g);box.appendChild(c2);
+  // ---- ocupação
+  const c3=el('div','card');c3.appendChild(el('h2',null,'Ocupação'));
+  const sn=el('div','subnav');[['mes','Este mês'],['prox30','Próximos 30 dias'],['ult30','Últimos 30 dias'],['ano','Este ano']].forEach(([k,t])=>{const b=el('button',k===iniPer?'on':null,t);b.type='button';b.onclick=()=>{iniPer=k;renderIni()};sn.appendChild(b)});c3.appendChild(sn);
+  const P=periodoIni(),ids=cabins.map(c=>c.id),G=ocupacao(ids,P.a,P.b);
+  c3.appendChild(el('p','hint','Período: '+P.nome+' ('+br(P.a)+' a '+br(iso(addDays(fromIso(P.b),-1)))+').'));
+  const k=el('div','kpis');
+  const est2=cabins.flatMap(c=>estadiasCanal(c.id)).filter(e=>e.start>=P.a&&e.start<P.b);
+  const media=est2.length?est2.reduce((a,e)=>a+diasEntre(e.start,e.end),0)/est2.length:null;
+  [[pct(G.taxa),'ocupação geral'],[String(G.noites),'noites ocupadas (de '+G.disp+' disponíveis)'],[String(est2.length),'reservas com entrada no período'],
+   [media!=null?media.toFixed(1).replace('.',','):'—','noites por reserva (média)'],[pct(G.fds.d?G.fds.o/G.fds.d:null),'ocupação sexta e sábado'],[pct(G.sem.d?G.sem.o/G.sem.d:null),'ocupação domingo a quinta']]
+   .forEach(([v,t])=>{const d=el('div','kpi');d.appendChild(el('b',null,v));d.appendChild(el('span',null,t));k.appendChild(d)});
+  c3.appendChild(k);
+  const g2=el('div','g2');
+  const pc=el('div','est');pc.appendChild(el('h3',null,'Por cabana'));
+  cabins.forEach(c=>{const o=ocupacao([c.id],P.a,P.b);const r=el('div',null);r.style.margin='10px 0';
+    const l=el('div',null);l.style.cssText='display:flex;justify-content:space-between;font-size:14px';l.appendChild(el('span',null,c.name));l.appendChild(el('b',null,pct(o.taxa)+' · '+o.noites+' noites'));r.appendChild(l);r.appendChild(barra(o.taxa));pc.appendChild(r)});
+  g2.appendChild(pc);
+  const pk=el('div','est');pk.appendChild(el('h3',null,'Por canal'));pk.appendChild(el('p','hint','Fatia das noites ocupadas que veio de cada canal.'));
+  const cs=Object.keys(G.canal).sort((a,b)=>G.canal[b]-G.canal[a]);
+  if(!cs.length)pk.appendChild(el('p','hint','Nenhuma noite ocupada no período.'));
+  cs.forEach(cn=>{const v=G.canal[cn]/G.noites;const r=el('div',null);r.style.margin='10px 0';const l=el('div',null);l.style.cssText='display:flex;justify-content:space-between;font-size:14px';
+    l.appendChild(el('span',null,CANAL_NOME[cn]||cn));l.appendChild(el('b',null,pct(v)+' · '+G.canal[cn]+' noites'));r.appendChild(l);r.appendChild(barra(v,CANAL_COR[cn]));pk.appendChild(r)});
+  g2.appendChild(pk);c3.appendChild(g2);
+  // ---- mês a mês
+  const c4=el('div','est');c4.style.marginTop='12px';c4.appendChild(el('h3',null,'Ocupação mês a mês'));
+  const ch=el('div',null);ch.style.cssText='display:flex;align-items:flex-end;gap:6px;height:150px;margin-top:10px;overflow-x:auto';
+  for(let i=-6;i<=5;i++){const m0=new Date(hoje.getFullYear(),hoje.getMonth()+i,1),m1=new Date(hoje.getFullYear(),hoje.getMonth()+i+1,1);
+    const o=ocupacao(ids,iso(m0),iso(m1));const col=el('div',null);col.style.cssText='flex:1;min-width:38px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%';
+    col.appendChild(el('span',null,pct(o.taxa))).style.cssText='font-size:11px;color:var(--mut)';
+    const bar=el('div',null);bar.style.cssText='width:70%;border-radius:5px 5px 0 0;height:'+Math.max(2,Math.round((o.taxa||0)*110))+'px;background:'+(i<0?'#c9b79c':i===0?'var(--acc)':'#e2c89f');col.appendChild(bar);
+    col.appendChild(el('span',null,MESES[m0.getMonth()].slice(0,3)+'/'+String(m0.getFullYear()).slice(2))).style.cssText='font-size:11px;margin-top:4px;color:'+(i===0?'var(--ink)':'var(--mut)');ch.appendChild(col)}
+  c4.appendChild(ch);c4.appendChild(el('p','hint','Meses passados em cinza, o mês atual em destaque e os próximos meses com o que já está reservado.'));
+  c3.appendChild(c4);
+  c3.appendChild(el('p','hint','Como contamos: noites ocupadas ÷ noites disponíveis. Dias que você bloqueou sem hóspede saem da conta. Se a mesma estadia aparecer em dois canais (ex.: site e Airbnb), ela conta uma vez só, no canal de origem. O histórico do Airbnb só existe a partir de quando a sincronização começou; reservas antigas entram se você lançá-las no calendário.'));
+  box.appendChild(c3);
+}
+
 /* ---------- abas ---------- */
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.classList.toggle('on',x===b));
+  $('tab-ini').classList.toggle('hide',b.dataset.tab!=='ini');
   $('tab-cal').classList.toggle('hide',b.dataset.tab!=='cal');
+  if(b.dataset.tab==='ini')renderIni();
   $('tab-preco').classList.toggle('hide',b.dataset.tab!=='preco');
   $('tab-sync').classList.toggle('hide',b.dataset.tab!=='sync');
   $('tab-res').classList.toggle('hide',b.dataset.tab!=='res');
