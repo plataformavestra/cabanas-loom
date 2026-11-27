@@ -210,6 +210,26 @@ th{font-weight:500;color:var(--mut);font-size:12px}
     </div>
 
     <div id="tab-preco" class="hide">
+      <div class="card" id="calcCard">
+        <h2>Calculadora de preço por plataforma</h2>
+        <div class="hint" style="margin:0 0 12px">Escolha a plataforma que vai servir de guia e digite o preço da noite nela. As outras são calculadas para o hóspede pagar o mesmo no Airbnb e no Vrbo, e um pouco menos no site.</div>
+        <div class="g3">
+          <div class="row"><label>Plataforma guia</label><select id="ccGuia"><option value="site">Site</option><option value="airbnb">Airbnb</option><option value="vrbo">Vrbo</option></select></div>
+          <div class="row"><label>Preço da noite na guia (R$)</label><input id="ccValor" type="number" min="0" step="0.01" placeholder="Ex.: 500"></div>
+          <div class="row"><label>Desconto do site (%)</label><input id="ccDesc" type="number" min="0" step="0.1"></div>
+        </div>
+        <div class="tw" style="margin-top:6px"><table id="ccTab"><thead><tr><th>Plataforma</th><th style="text-align:right">Preço a colocar</th><th style="text-align:right">Hóspede paga</th><th style="text-align:right">Você recebe (aprox.)</th></tr></thead><tbody></tbody></table></div>
+        <details style="margin-top:10px"><summary class="hint" style="cursor:pointer;margin:0">Taxas usadas no cálculo (pode ajustar)</summary>
+          <div class="g3" style="margin-top:10px">
+            <div class="row"><label>Comissão do Airbnb (%)</label><input id="ccAir" type="number" min="0" step="0.1"></div>
+            <div class="row"><label>Comissão do Vrbo (%)</label><input id="ccVrbo" type="number" min="0" step="0.1"></div>
+            <div class="row"><label>Taxa que o Vrbo cobra do hóspede (%)</label><input id="ccVrboHosp" type="number" min="0" step="0.1"></div>
+            <div class="row"><label>Cartão no site (%)</label><input id="ccCard" type="number" min="0" step="0.01"></div>
+            <div class="row"><label>Cartão no site (R$ fixo por reserva)</label><input id="ccCardFix" type="number" min="0" step="0.01"></div>
+          </div>
+          <div class="hint">A taxa do hóspede no Vrbo varia: confira na prévia do anúncio quanto ele mostra ao hóspede e ajuste aqui. O valor fixo do cartão é cobrado por reserva, não por noite (o "você recebe" do site considera 1 noite).</div>
+        </details>
+      </div>
       <div class="card">
         <div class="bar"><select id="prCabin"></select></div>
         <h2>Dados da cabana</h2>
@@ -1817,6 +1837,43 @@ $('ferRegra').onchange=async()=>{
   const v=$('ferRegra').value;const {error}=await sb.from('app_settings').upsert({key:'feriado_regra',value:v,updated_at:new Date().toISOString()},{onConflict:'key'});
   if(error){toast('Não foi possível salvar.');return}settings.feriado_regra=v;toast('Regra de feriado salva.');renderPreview();
 };
+
+
+/* ---------- calculadora de preço por plataforma ---------- */
+{
+  const CC_PAD={desc:5,air:16,vrbo:12,vrboHosp:0,card:2.99,cardFix:0.49,guia:'airbnb'};
+  let cc=Object.assign({},CC_PAD);
+  try{Object.assign(cc,JSON.parse(localStorage.getItem('loom-calc')||'{}'))}catch(_){}
+  const campos={ccDesc:'desc',ccAir:'air',ccVrbo:'vrbo',ccVrboHosp:'vrboHosp',ccCard:'card',ccCardFix:'cardFix'};
+  Object.entries(campos).forEach(([id,k])=>{$(id).value=cc[k]});
+  $('ccGuia').value=cc.guia;
+  const r2=n=>Math.round(n*100)/100;
+  function calc(){
+    Object.entries(campos).forEach(([id,k])=>{const v=parseFloat($(id).value);cc[k]=isNaN(v)?CC_PAD[k]:v});
+    cc.guia=$('ccGuia').value;
+    try{localStorage.setItem('loom-calc',JSON.stringify(cc))}catch(_){}
+    const tb=$('ccTab').querySelector('tbody');tb.innerHTML='';
+    const v=parseFloat($('ccValor').value);
+    if(!(v>0)){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=4;td.className='hint';td.textContent='Digite um preço para ver os valores.';tr.appendChild(td);tb.appendChild(tr);return}
+    const fd=1-cc.desc/100, fh=1+cc.vrboHosp/100;
+    // G = o que o hóspede paga no Airbnb e no Vrbo
+    const G=cc.guia==='site'?v/fd:cc.guia==='vrbo'?v*fh:v;
+    const site=G*fd, air=G, vrbo=G/fh;
+    const linhas=[
+      ['site','Site',site,site,site-(site*cc.card/100+cc.cardFix)],
+      ['airbnb','Airbnb',air,air,air*(1-cc.air/100)],
+      ['vrbo','Vrbo',vrbo,vrbo*fh,vrbo*(1-cc.vrbo/100)],
+    ];
+    linhas.forEach(([k,nome,preco,hosp,liq])=>{
+      const tr=document.createElement('tr');if(k===cc.guia)tr.style.fontWeight='600';
+      const a=document.createElement('td');a.textContent=nome+(k===cc.guia?' (guia)':'');tr.appendChild(a);
+      [preco,hosp,liq].forEach(n=>{const td=document.createElement('td');td.style.textAlign='right';td.textContent=money(r2(n));tr.appendChild(td)});
+      tb.appendChild(tr);
+    });
+  }
+  ['ccGuia','ccValor',...Object.keys(campos)].forEach(id=>{$(id).addEventListener('input',calc);$(id).addEventListener('change',calc)});
+  calc();
+}
 
 /* ---------- sincronização (iCal) ---------- */
 const PLAT={airbnb:'Airbnb',booking:'Booking',vrbo:'Vrbo'};
