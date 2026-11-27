@@ -7,7 +7,7 @@
 <title>Painel · Cabanas Loom</title>
 <style>
 :root{--bg:#f4efe6;--card:#fffdf8;--ink:#2a2118;--mut:#7a6a58;--line:#e2d8c8;--acc:#8a5a2b;--acc2:#6b4420;--ok:#3f7d4e;--bad:#b3452f;
---manual:#c98a3d;--reserva:#7a4fa0;--airbnb:#d9534f;--booking:#2f6fb3;--site:#3f7d4e}
+--manual:#c98a3d;--reserva:#7a4fa0;--airbnb:#d9534f;--booking:#2f6fb3;--site:#3f7d4e;--vrbo:#1b3a8c}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
 h1,h2,h3{font-family:Georgia,'Times New Roman',serif;font-weight:500;margin:0}
@@ -47,7 +47,7 @@ main{padding:18px 22px 60px;max-width:1100px;margin:0 auto}
 .day.empty{border:0;background:transparent;cursor:default}
 .day.sel{outline:2px solid var(--acc);background:#f6e9d6}
 .day .b{position:absolute;left:3px;right:3px;bottom:3px;height:5px;border-radius:3px}
-.day .b.manual{background:var(--manual)}.day .b.reserva{background:var(--reserva)}.day .b.airbnb{background:var(--airbnb)}.day .b.booking{background:var(--booking)}.day .b.site{background:var(--site)}
+.day .b.manual{background:var(--manual)}.day .b.reserva{background:var(--reserva)}.day .b.airbnb{background:var(--airbnb)}.day .b.booking{background:var(--booking)}.day .b.vrbo{background:var(--vrbo)}.day .b.site{background:var(--site)}
 .day.occ{background:#f9f4ea}
 .pv{min-width:0}.pv .grid{grid-template-columns:repeat(7,minmax(0,1fr))}
 .pv .day{cursor:default;flex-direction:column;justify-content:space-between;padding:3px 4px}
@@ -66,7 +66,7 @@ table{width:100%;border-collapse:collapse;font-size:14px;min-width:480px}
 th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line)}
 th{font-weight:500;color:var(--mut);font-size:12px}
 .tag{display:inline-block;padding:1px 8px;border-radius:10px;color:#fff;font-size:12px}
-.tag.manual{background:var(--manual)}.tag.reserva{background:var(--reserva)}.tag.airbnb{background:var(--airbnb)}.tag.booking{background:var(--booking)}.tag.site{background:var(--site)}
+.tag.manual{background:var(--manual)}.tag.reserva{background:var(--reserva)}.tag.airbnb{background:var(--airbnb)}.tag.booking{background:var(--booking)}.tag.vrbo{background:var(--vrbo)}.tag.site{background:var(--site)}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
 .hint{color:var(--mut);font-size:13px;margin-top:6px}
@@ -185,6 +185,7 @@ th{font-weight:500;color:var(--mut);font-size:12px}
           <span><i style="background:var(--manual)"></i>Bloqueio seu (sem hóspede)</span>
           <span><i style="background:var(--airbnb)"></i>Airbnb</span>
           <span><i style="background:var(--booking)"></i>Booking</span>
+          <span><i style="background:var(--vrbo)"></i>Vrbo</span>
           <span><i style="background:var(--site)"></i>Site</span>
         </div>
         <div class="hint">Com uma cabana escolhida, a barra escura no meio dos dias mostra cada estadia, da entrada à saída (cinza = bloqueio seu sem hóspede). Clique no primeiro dia e depois no último dia da estadia (as noites ocupadas). O check-out é no dia seguinte ao último dia.</div>
@@ -447,7 +448,7 @@ const SB_KEY='sb_publishable_NmufNWN4WlGBLfXi9eJ0UA_7IKtpy5X';
 const sb=window.__mockSb||supabase.createClient(SB_URL,SB_KEY);
 const $=id=>document.getElementById(id);
 const MESES=['janeiro','fevereiro','março','abril','maio','junho','julho','agosto','setembro','outubro','novembro','dezembro'];
-const ORIGEM={reserva:'Reserva (lançada por você)',manual:'Bloqueio seu',airbnb:'Airbnb',booking:'Booking',site:'Site'};
+const ORIGEM={reserva:'Reserva (lançada por você)',manual:'Bloqueio seu',airbnb:'Airbnb',booking:'Booking',vrbo:'Vrbo',site:'Site'};
 let templates=null,settings={},msgDirty=false,lastField=null;
 let gasEv=null,glassEv=null,holidays=null,pvView=null;
 let cabins=[],blocks=[],rules=[],sources=[],feeds=[],requests=null,view=new Date(),selA=null,selB=null;
@@ -513,7 +514,7 @@ function fmtPhone(d){d=String(d).replace(/\D/g,'');if(d.length===11)return '('+d
 function cabName(id){const c=cabins.find(x=>x.id===id);return c?c.name:id}
 function el(tag,cls,txt){const e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e}
 function conflictOf(r){return blocks.filter(b=>b.cabin_id===r.cabin_id&&b.start_date<r.end_date&&b.end_date>r.start_date)}
-const SRC_NOME={reserva:'reserva lançada por você',manual:'bloqueio seu',airbnb:'Airbnb',booking:'Booking',site:'site'};
+const SRC_NOME={reserva:'reserva lançada por você',manual:'bloqueio seu',airbnb:'Airbnb',booking:'Booking',vrbo:'Vrbo',site:'site'};
 const money=v=>Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
 const dtbr=v=>new Date(v).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
 const SIT={aprovada:'Aprovada',recusada:'Recusada',confirmada:'Paga e confirmada',expirada:'Expirou sem pagar',cancelada:'Cancelada',pago_conflito:'PAGO, mas as datas estavam ocupadas: devolva o valor no Asaas',aguardando_pagamento:'Aguardando pagamento',pendente:'Pendente'};
@@ -1040,9 +1041,9 @@ function renderEst(){
 }
 
 /* ---------- início: semana e indicadores ---------- */
-const CANAL_NOME={site:'Site',airbnb:'Airbnb',booking:'Booking',reserva:'Direto'};
-const CANAL_COR={site:'var(--site)',airbnb:'var(--airbnb)',booking:'var(--booking)',reserva:'var(--reserva)'};
-const CANAL_PRIO=['site','reserva','booking','airbnb']; // se a mesma noite aparecer em dois canais, vale o primeiro desta lista
+const CANAL_NOME={site:'Site',airbnb:'Airbnb',booking:'Booking',vrbo:'Vrbo',reserva:'Direto'};
+const CANAL_COR={site:'var(--site)',airbnb:'var(--airbnb)',booking:'var(--booking)',vrbo:'var(--vrbo)',reserva:'var(--reserva)'};
+const CANAL_PRIO=['site','reserva','booking','vrbo','airbnb']; // se a mesma noite aparecer em dois canais, vale o primeiro desta lista
 const DIAS_SEM=['domingo','segunda','terça','quarta','quinta','sexta','sábado'];
 let iniPer='mes';
 function noiteCanal(cab,d){ // canal que ocupa a noite d da cabana (ou null); 'bloq' se só houver bloqueio seu
@@ -1064,6 +1065,7 @@ function quemReserva(e){
   if(e.canal==='reserva')return e.b.note||'Reserva direta (lançada por você)';
   if(e.canal==='airbnb')return 'Hóspede do Airbnb';
   if(e.canal==='booking')return 'Hóspede do Booking';
+  if(e.canal==='vrbo')return 'Hóspede do Vrbo';
   return '';
 }
 function periodoIni(){
@@ -1549,10 +1551,10 @@ function renderFin(box,P){
   meses.forEach((M,i)=>{const p=vals[i],tot=Object.values(p).reduce((a,b)=>a+b,0);const col=el('div',null);col.style.cssText='flex:1;min-width:44px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%';
     const lb=el('span',null,tot?'R$ '+(tot>=1000?(tot/1000).toFixed(1).replace('.',',')+' mil':Math.round(tot)):'—');lb.style.cssText='font-size:10px;color:var(--mut);margin-bottom:2px';col.appendChild(lb);
     const st=el('div',null);st.style.cssText='width:70%;display:flex;flex-direction:column-reverse;border-radius:5px 5px 0 0;overflow:hidden;height:'+Math.max(2,Math.round(tot/max*120))+'px';
-    ['site','reserva','booking','airbnb','outro'].forEach(cn=>{if(p[cn]){const s=el('div',null);s.style.cssText='height:'+(p[cn]/tot*100)+'%;background:'+(CANAL_COR[cn]||'#9a8b78');s.title=(CANAL_NOME[cn]||'Outros')+': '+money(p[cn]);st.appendChild(s)}});
+    ['site','reserva','booking','vrbo','airbnb','outro'].forEach(cn=>{if(p[cn]){const s=el('div',null);s.style.cssText='height:'+(p[cn]/tot*100)+'%;background:'+(CANAL_COR[cn]||'#9a8b78');s.title=(CANAL_NOME[cn]||'Outros')+': '+money(p[cn]);st.appendChild(s)}});
     col.appendChild(st);const ml=el('span',null,MESES[M.m0.getMonth()].slice(0,3)+'/'+String(M.m0.getFullYear()).slice(2));ml.style.cssText='font-size:11px;margin-top:4px;color:'+(M.cur?'var(--ink);font-weight:600':'var(--mut)');col.appendChild(ml);row.appendChild(col)});
   ch.appendChild(row);
-  const lg=el('div','leg');[['site','Site'],['airbnb','Airbnb'],['booking','Booking'],['reserva','Direto'],['outro','Outros']].forEach(([k2,t])=>{const s=el('span',null);const i=document.createElement('i');i.style.background=CANAL_COR[k2]||'#9a8b78';s.appendChild(i);s.appendChild(document.createTextNode(t));lg.appendChild(s)});
+  const lg=el('div','leg');[['site','Site'],['airbnb','Airbnb'],['booking','Booking'],['vrbo','Vrbo'],['reserva','Direto'],['outro','Outros']].forEach(([k2,t])=>{const s=el('span',null);const i=document.createElement('i');i.style.background=CANAL_COR[k2]||'#9a8b78';s.appendChild(i);s.appendChild(document.createTextNode(t));lg.appendChild(s)});
   ch.appendChild(lg);ch.appendChild(el('p','hint','Pela data de entrada. Meses futuros mostram só o que já tem valor (reservas do site pagas).'));
   c.appendChild(ch);box.appendChild(c);
 }
@@ -1817,7 +1819,7 @@ $('ferRegra').onchange=async()=>{
 };
 
 /* ---------- sincronização (iCal) ---------- */
-const PLAT={airbnb:'Airbnb',booking:'Booking'};
+const PLAT={airbnb:'Airbnb',booking:'Booking',vrbo:'Vrbo'};
 const nomeCabana=id=>(cabins.find(c=>c.id===id)||{}).name||id;
 function fmtHora(t){if(!t)return 'nunca';const d=new Date(t);return p2(d.getDate())+'/'+p2(d.getMonth()+1)+'/'+d.getFullYear()+' '+p2(d.getHours())+':'+p2(d.getMinutes())}
 function renderSync(){
